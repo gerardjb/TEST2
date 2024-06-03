@@ -13,7 +13,8 @@ setup(
         "scipy",
         "matplotlib==3.6.0",
         "tensorflow==2.4.0",  # pip install CPU and GPU tensorflow
-        "h5py",,
+        "h5py",
+        "pybind",
         "ruamel.yaml",
     ],
 )
