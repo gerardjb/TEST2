@@ -1,0 +1,14 @@
+# python dev stuff
+__pycache__
+*.py[cod]
+*bin/
+*build/
+*dist/
+*env/
+*.obj/
+
+# C
+*.so
+
+# Jupyter Notebook
+.ipynb_checkpoints

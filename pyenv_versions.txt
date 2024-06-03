@@ -1,0 +1,4 @@
+  system
+  3.8.18
+  3.8.18/envs/test1_0
+* test1_0 --> /home/gerardjb/.pyenv/versions/3.8.18/envs/test1_0 (set by PYENV_VERSION environment variable)
