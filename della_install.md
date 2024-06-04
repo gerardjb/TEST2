@@ -10,7 +10,7 @@ with automatic rebuilds enabled in sckit-build-core.
 cd /scratch/gpfs/<username>/TEST2
 git clone https://github.com/microsoft/vcpkg
 ./vcpkg/bootstrap-vcpkg.sh
-./vcpkg/vcpkg integrate install gsl Armadillo jsoncpp boost-circular-buffer
+./vcpkg/vcpkg install gsl Armadillo jsoncpp boost-circular-buffer
 ./vcpkg/vcpkg integrate install
 ```
 
