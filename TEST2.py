@@ -20,7 +20,7 @@ tag="default"
 niter=2
 gtSpike_file="sample_data/stimtimes_poisson_counts.dat"
 maxlen=1000
-Gparam_file="pgas/20230525_gold.dat"
+Gparam_file="src/spike_find/pgas/20230525_gold.dat"
 verbose=1
 
 analyzer = pgas.Analyzer(
