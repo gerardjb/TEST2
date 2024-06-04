@@ -18,9 +18,9 @@ constants_file="sample_data/constants_GCaMP3_soma.json"
 output_folder="sample_data/output"
 column=1
 tag="default"
-niter=2
+niter=100
 gtSpike_file="sample_data/stimtimes_poisson_counts.dat"
-maxlen=1000
+maxlen=2000
 Gparam_file="src/spike_find/pgas/20230525_gold.dat"
 verbose=1
 
