@@ -13,6 +13,9 @@ __pycache__
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Data
+Ground_truth/*
+
 vcpkg/
 
 .vscode/
