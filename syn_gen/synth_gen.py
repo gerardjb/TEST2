@@ -179,7 +179,7 @@ class synth_gen():
         noise = inner_array['gt_noise'][0][0]
         time = inner_array['fluo_time'][0][0]
         T = time[-1] - time[0]
-        if T>5:
+        try:
           spikes = self.spk_gen(T) + time[0]
         
           #Simulation
@@ -191,7 +191,7 @@ class synth_gen():
           new_inner_array['fluo_mean'][0][0] = np.array([dff_clean.flatten() + noise.flatten()])
           #new_inner_array['events_AP'] = np.empty((1, 1), dtype='|O')
           new_inner_array['events_AP'][0][0] = spikes*1e4
-        else:
+        except:
           break
         
         CAttached[0][ii] = new_inner_array

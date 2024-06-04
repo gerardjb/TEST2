@@ -1,10 +1,10 @@
 #Compiler and flags declarations
 CXX = g++
 #Note c++14 was required for some of the static declarations made by pybind11
-CXXFLAGS = -O3 -Wall -shared -std=c++14 -fPIC $(shell python3 -m pybind11 --includes)
+CXXFLAGS = -O3 -Wall -shared -std=c++14 -fPIC $(shell python3 -m pybind11 --includes) -I/home/gerardjb/.local/lib/include/
 
 #Library linking, etc.
-LDFLAGS = -lgsl -lgslcblas -larmadillo -ljsoncpp -std=c++14
+LDFLAGS = -L/home/gerardjb/.local/lib/lib64 -lgsl -lgslcblas -larmadillo -ljsoncpp -std=c++14
 
 #For the compiled python binary
 TARGET = pgas_bound$(shell python3-config --extension-suffix)
@@ -31,11 +31,11 @@ $(DIRS):
 	mkdir -p $(DIRS)
 	
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
-	$(CXX) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CFLAGS) -c $< -o $@ $(LDFLAGS) $(CXXFLAGS)
 $(EXECUTABLES): $(BINDIR)/% : $(SRCDIR)/%.cxx $(OBJECTS)
-	$(CXX) -o $@ $< $(OBJECTS) $(LDFLAGS)
+	$(CXX) -o $@ $< $(OBJECTS) $(LDFLAGS) $(CXXFLAGS)
 $(TARGET): $(SOURCES)
-	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ $(LDFLAGS) $(CXXFLAGS)
 	
 .PHONY: all clean directories
 

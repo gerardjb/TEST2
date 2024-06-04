@@ -9,12 +9,13 @@ setup(
     packages=find_packages(),
     python_requires="==3.8",
     install_requires=[
-        "numpy==1.19.5",
+        "numpy==1.23.5",
         "scipy",
-        "matplotlib==3.6.0",
+        "matplotlib==3.7.0",
         "tensorflow==2.4.0",  # pip install CPU and GPU tensorflow
         "h5py",
         "pybind",
         "ruamel.yaml",
+        "jsoncpp==1.9.5",
     ],
 )
