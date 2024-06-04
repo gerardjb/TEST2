@@ -25,17 +25,22 @@ from scipy.stats import norm
 
 
 class synth_gen():
-  def __init__(self, spike_rate=2, spike_params=[5, 0.5],cell_params=[30e-6, 10e2, 1e-5, 5, 30, 10],\
+  def __init__(self, spike_rate=2, spike_params=[5, 0.5],cell_params=[30e-6, 10e2, 1e-5, 5, 30, 10],
     noise_dir="gt_noise_dir", GCaMP_model=None, tag="default", plot_on=False):
     
+    # Get current directory of this file, prepend to noise_dir
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    full_noise_path = os.path.join(current_dir, noise_dir)
+
     # Synth data settings
     self.spike_rate = spike_rate
     self.spike_params = spike_params
     self.Cparams = cell_params
+
     
     # Determine noise directory and get the file list, get path elements
     self.noise_dir = noise_dir
-    self.noise_files = [os.path.join("syn_gen",self.noise_dir,f) for f in os.listdir(os.path.join( "syn_gen", noise_dir)) if f.endswith('.mat')]
+    self.noise_files = [os.path.join(full_noise_path, f) for f in os.listdir(full_noise_path) if f.endswith('.mat')]
     self.tag = tag
     
     # Load the GCaMP_model
@@ -183,7 +188,7 @@ class synth_gen():
           spikes = self.spk_gen(T) + time[0]
         
           #Simulation
-          self.gcamp.integrateOverTime(np.float64(time.flatten()), np.float64(spikes.flatten()))
+          self.gcamp.integrateOverTime(time.flatten().astype(float), spikes.flatten().astype(float))
           dff_clean = self.gcamp.getDFFValues()
           
           #Add new field and fill with sim + noise and spike times
