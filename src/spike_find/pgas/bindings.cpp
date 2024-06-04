@@ -7,20 +7,20 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <cmath>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include <fstream>
 #include <iostream>
 //Type conversion for armadillo library in pybind11
-#include "../include/arma_pybind11.h"
+#include "include/arma_pybind11.h"
 //Bound modules
-#include "../include/Analyzer.h"
+#include "include/Analyzer.h"
 //In case any other functions or classes need to be exposed to python
-#include "../include/GCaMP_model.h"
-/*#include "../include/constants.h"
-#include "../include/mvn.h"
-#include "../include/param.h"
-#include "../include/particle.h"
-#include "../include/utils.h"*/
+#include "include/GCaMP_model.h"
+/*#include "include/constants.h"
+#include "include/mvn.h"
+#include "include/param.h"
+#include "include/particle.h"
+#include "include/utils.h"*/
 
 
 namespace py = pybind11;

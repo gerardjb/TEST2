@@ -1,4 +1,4 @@
-#include "../include/mvn.h"
+#include "include/mvn.h"
 #include "gsl/gsl_randist.h"
 
 mvn::mvn()

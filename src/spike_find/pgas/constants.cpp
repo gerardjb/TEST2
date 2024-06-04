@@ -1,6 +1,6 @@
-#include "../include/constants.h"
+#include "include/constants.h"
 #include <cmath>
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include <fstream>
 #include <iostream>
 

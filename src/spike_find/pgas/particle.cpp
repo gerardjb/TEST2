@@ -1,11 +1,11 @@
-#include"../include/particle.h"
-#include"../include/utils.h"
+#include"include/particle.h"
+#include"include/utils.h"
 #include<gsl/gsl_sf_gamma.h>
 #include<gsl/gsl_math.h>
 #include<fstream>
 #include<string>
 #include<ctime>
-#include"../include/GCaMP_model.h"
+#include"include/GCaMP_model.h"
 #include<iomanip>
 #include<boost/circular_buffer.hpp>
 using namespace std;

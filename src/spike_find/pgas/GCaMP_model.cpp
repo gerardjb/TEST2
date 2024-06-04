@@ -1,4 +1,4 @@
-#include"../include/GCaMP_model.h"
+#include"include/GCaMP_model.h"
 
 using namespace std;
 

@@ -1,12 +1,12 @@
 #include <iostream>
 #include <iomanip>
-#include "../include/particle.h"
-#include "../include/constants.h"
+#include "include/particle.h"
+#include "include/constants.h"
 #include <fstream>
 #include <sys/stat.h>
-#include "../include/utils.h"
+#include "include/utils.h"
 #include <getopt.h>
-#include "../include/Analyzer.h"
+#include "include/Analyzer.h"
 
 using namespace std;
 

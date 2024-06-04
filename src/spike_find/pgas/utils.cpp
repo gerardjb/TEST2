@@ -1,7 +1,7 @@
 #include<algorithm>
 #include<gsl/gsl_math.h>
 #include<armadillo>
-#include"../include/utils.h"
+#include"include/utils.h"
 #include<gsl/gsl_sf.h>
 using namespace std;
 
