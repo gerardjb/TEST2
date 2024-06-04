@@ -1,12 +1,12 @@
 #Importing project packages and required libraries
 import numpy as np
-import pgas.pgas_bound as pgas
-from syn_gen import synth_gen
+import spike_find.pgas.pgas_bound as pgas
+from spike_find.syn_gen import synth_gen
 import matplotlib.pyplot as plt
 
 import os
 print("Current directory: {}".format(os.getcwd()))
-from cascade2p import checks, utils, cascade
+from spike_find.cascade2p import checks, utils, cascade
 print("\nChecks for packages:")
 checks.check_packages()
 
