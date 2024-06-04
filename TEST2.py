@@ -97,4 +97,4 @@ cascade.train_model( model_name )
 # ## Saving routine
 # import scipy.io as sio
 # save_path = os.join.path("sample_data","sample_TEST_output.mat")
-# sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff':dff,'cfg':cfg})
+# sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'daff':fluo_data,'cfg':cfg})
