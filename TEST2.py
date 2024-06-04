@@ -94,7 +94,7 @@ cascade.train_model( model_name )
 # spike_prob = cascade.predict( model_name, dff )
 # discrete_approximation, spike_time_estimates = infer_discrete_spikes(spike_prob,model_name)
 
-# ## Saving routine
-# import scipy.io as sio
-# save_path = os.join.path("sample_data","sample_TEST_output.mat")
-# sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff':dff,'cfg':cfg})
+## Saving routine
+import scipy.io as sio
+save_path = os.join.path("sample_data","sample_TEST_output.mat")
+sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff':fluo_data,'cfg':cfg})
