@@ -41,6 +41,6 @@ pip install scikit-build-core setuptools_scm pybind11
 As per the instructions from scikit-build-core and [editable instals](https://scikit-build-core.readthedocs.io/en/latest/configuration.html#editable-installs), which are still a bit experimental, we need to use the following command to install the project in editable mode. This will enable automatic rebuilds when the source code changes and the package is imported.
 
 ```bash
-pip install --no-build-isolation --config-settings=editable.rebuild=true -Cbuild-dir=build -ve.
+pip install --no-build-isolation --config-settings=editable.rebuild=true -Cbuild-dir=build -ve.[dev]
 ```
 
