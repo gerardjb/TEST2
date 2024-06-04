@@ -90,11 +90,13 @@ model_name = cfg['model_name']
 cascade.train_model( model_name )
 
 ## Use trained model to perform inference on the original dataset
-# from spike_find.cascade2p.utils_discrete_spikes import infer_discrete_spikes
-# spike_prob = cascade.predict( model_name, dff )
-# discrete_approximation, spike_time_estimates = infer_discrete_spikes(spike_prob,model_name)
+'''
+from spike_find.cascade2p.utils_discrete_spikes import infer_discrete_spikes
+spike_prob = cascade.predict( model_name, dff )
+discrete_approximation, spike_time_estimates = infer_discrete_spikes(spike_prob,model_name)
+'''
 
-# ## Saving routine
-# import scipy.io as sio
-# save_path = os.join.path("sample_data","sample_TEST_output.mat")
-# sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff':dff,'cfg':cfg})
+## Saving routine
+import scipy.io as sio
+save_path = os.join.path("sample_data","sample_TEST_output.mat")
+sio.savemat(save_path,{'spike_prob':spike_prob,'time':time,'dff':dff,'cfg':cfg}) #removed ,'spike_time_estimates':spike_time_estimates (see above)
