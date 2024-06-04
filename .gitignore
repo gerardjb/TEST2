@@ -12,3 +12,11 @@ __pycache__
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+vcpkg/
+
+.vscode/
+
+sample_data/output/
+
+src/spike_find/_version.py
