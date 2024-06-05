@@ -29,3 +29,6 @@ profiles/
 # Outputs for syn_gen and cascade
 Pretrained_models/*
 Ground_truth/*
+
+# Outputs for pgas test, when run outside of pytest.
+tests/sample_data/output/
