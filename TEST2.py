@@ -1,12 +1,13 @@
+#%%
 #Importing project packages and required libraries
 import numpy as np
-import pgas.pgas_bound as pgas
-from syn_gen import synth_gen
+import spike_find.pgas.pgas_bound as pgas
+from spike_find.syn_gen import synth_gen
 import matplotlib.pyplot as plt
 
 import os
 print("Current directory: {}".format(os.getcwd()))
-from cascade2p import checks, utils, cascade
+from spike_find.cascade2p import checks, utils, cascade
 print("\nChecks for packages:")
 checks.check_packages()
 
@@ -20,7 +21,7 @@ tag="default"
 niter=2
 gtSpike_file="sample_data/stimtimes_poisson_counts.dat"
 maxlen=1000
-Gparam_file="pgas/20230525_gold.dat"
+Gparam_file="src/spike_find/pgas/20230525_gold.dat"
 verbose=1
 
 analyzer = pgas.Analyzer(
@@ -89,11 +90,11 @@ model_name = cfg['model_name']
 cascade.train_model( model_name )
 
 ## Use trained model to perform inference on the original dataset
-from cascade2p.utils_discrete_spikes import infer_discrete_spikes
-spike_prob = cascade.predict( model_name, dff )
-discrete_approximation, spike_time_estimates = infer_discrete_spikes(spike_prob,model_name)
+# from spike_find.cascade2p.utils_discrete_spikes import infer_discrete_spikes
+# spike_prob = cascade.predict( model_name, dff )
+# discrete_approximation, spike_time_estimates = infer_discrete_spikes(spike_prob,model_name)
 
 ## Saving routine
 import scipy.io as sio
 save_path = os.join.path("sample_data","sample_TEST_output.mat")
-sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff',dff,'cfg':cfg})
+sio.savemat(save_path,{'spike_prob':spike_prob,'spike_time_estimates':spike_time_estimates,'time':time,'dff':fluo_data,'cfg':cfg})
