@@ -262,9 +262,12 @@ void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, 
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
     double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));
     
-    model->evolve(dt,(int)ns,parent.C);
-    ct = model->DFF;
-
+    // model->evolve(dt,(int)ns,parent.C);
+    // ct = model->DFF;
+    arma::vec state_out;
+    state_out.set_size(12);
+    ct = model->fixedStep_LA_threadsafe(dt, (int)ns, parent.C, state_out);
+    
     log_probs[0] = log(W[parent.burst][0]);
     log_probs[0] += ns*log(rate[0]) - log(gsl_sf_gamma(ns+1)) -rate[0];
     log_probs[0] += -0.5/(par.sigma2+pow(constants->bm_sigma,2))*pow(y-ct-parent.B,2);
@@ -288,7 +291,8 @@ void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, 
         gsl_ran_discrete_free(rdisc);
     }
     
-    part.C     = model->state;
+    // part.C     = model->state;
+    part.C = state_out;
 
 }
 
@@ -595,7 +599,7 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     }
 
     for(t=1;t<TIME;++t){
-         cout<<"    "<<t<<"      \r"<<flush;
+        cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0
         for(i=0;i<nparticles;i++){
             logW[i] = particleSystem[t-1][i].logWeight;
@@ -619,6 +623,7 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
         }
 
         // Move and weight particles
+        // #pragma omp parallel for schedule(static)
         for(i=0;i<nparticles;i++){
             a = particleSystem[t][i].ancestor;
             if(constants->KNOWN_SPIKES){
