@@ -7,7 +7,7 @@
 #include<ctime>
 #include"include/GCaMP_model.h"
 #include<iomanip>
-#include<boost/circular_buffer.hpp>
+
 using namespace std;
 
 // PARTICLE CLASS
