@@ -75,7 +75,7 @@
 	- Description: houses a series of functions used for distribution normalization
 	- methods:
 		- w_from_logW (converts log weights to normalized weights (i.e. they sum to ~one) by passing whoel distribution out by refernce)
-		-Z_from_logW (converts log weights to a normalization factor for the optimal proposal distribution for reducing the variance of importance weights - this term is also derived as the importance weight itself for all non-reference particles (see eqns. 18, 25, 26))
+		- Z_from_logW (converts log weights to a normalization factor for the optimal proposal distribution for reducing the variance of importance weights - this term is also derived as the importance weight itself for all non-reference particles (see eqns. 18, 25, 26))
 ### Model parameters
 - spike production params
 	- wbb (probability of firing rate state transition (state referred to as "burst") - 2 x 2 matrix of probability of transitioning between state r0 and r1; updates in SMC::sampleParameters as gamma distribution with parameters updated by empirical transition probabilities)
