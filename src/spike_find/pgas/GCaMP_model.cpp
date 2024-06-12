@@ -150,19 +150,19 @@ void GCaMP::setParams(double p1, double p2, double p3, double p4, double p5, dou
 }
 
 
-void GCaMP::setGmat_konN_konC(double konN, double konC){
+void GCaMP::setGmat_konN_konC(arma::mat::fixed<9,9> & Gmatrix, double konN, double konC){
 
-  Gmat(0, 0) = -(konN+konC);
-  Gmat(1, 0) = konN;
-  Gmat(1, 1) = -(koffN+konPN+konC);
-  Gmat(2, 2) = -(konC+koffPN);
-  Gmat(3, 2) = konC;
-  Gmat(4, 0) = konC;
-  Gmat(4, 4) = -(koffC+konPC+konN);
-  Gmat(5, 5) = -(koffPC+konN);
-  Gmat(6, 5) = konN;
-  Gmat(7, 1) = konC;
-  Gmat(7, 4) = konN;
+  Gmatrix(0, 0) = -(konN+konC);
+  Gmatrix(1, 0) = konN;
+  Gmatrix(1, 1) = -(koffN+konPN+konC);
+  Gmatrix(2, 2) = -(konC+koffPN);
+  Gmatrix(3, 2) = konC;
+  Gmatrix(4, 0) = konC;
+  Gmatrix(4, 4) = -(koffC+konPC+konN);
+  Gmatrix(5, 5) = -(koffPC+konN);
+  Gmatrix(6, 5) = konN;
+  Gmatrix(7, 1) = konC;
+  Gmatrix(7, 4) = konN;
 
 }
 
@@ -184,6 +184,35 @@ void GCaMP::setGmat(double ca){
 //            {0,0,0,konX,0,0,konPN,0,-(koffPN+koffPC)}};
 
 	Gmat = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
+		    {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
+			{0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
+			{0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
+			{konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0},
+			{0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2},
+			{0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0},
+			{0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0},
+			{0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)}};
+
+}
+
+void GCaMP::fillGmat(arma::mat::fixed<9,9> & Gmatrix, double ca){
+
+	konN   = Gparams(0)*pow(ca,Gparams(2));
+  konC   = Gparams(3)*pow(ca,Gparams(5));
+
+// note: because only 2 parameters need to be updated when changing calcium level, perhaps here we can optimize something
+
+//	Gmat = {{-(konN+konC),koffN,koffPN,0,koffC,koffX2,0,0,0},
+//            {konN,-(koffN+konPN+konC),0,0,0,0,koffPC,koffC,0},
+//            {0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC},
+//            {0,0,konC,-(koffC+konX+koffPN),0,0,0,konPN,0},
+//            {konC,0,0,koffPN,-(koffC+konPC+konN),koffPC,0,koffN,0},
+//            {0,0,0,0,konPC,-(koffPC+konN+koffX2),koffN,0,koffPN},
+//            {0,0,0,0,0,konN,-(koffN+konPN+koffPC),konX,0},
+//            {0,konC,0,0,konN,0,0,-(koffC+koffN+konX+konPN),0},
+//            {0,0,0,konX,0,0,konPN,0,-(koffPN+koffPC)}};
+
+	Gmatrix = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
 		    {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
 			{0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
 			{0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
@@ -275,6 +304,18 @@ void GCaMP::evolve(double deltat, int ns){
     }
 }
 
+void GCaMP::evolve_threadsafe(double deltat, int ns, const arma::vec& state_in, arma::vec& state_out, double & dff_out){
+    switch(TSMode){
+        case FIXED:
+            fixedStep(deltat,ns);
+            break;
+        case FIXEDLA:
+            dff_out = fixedStep_LA_threadsafe(deltat,ns,state_in,state_out);
+            break;
+    }
+}
+
+
 void GCaMP::fixedStep(double deltat, int ns){
 
     arma::vec G = state(arma::span(0,8));
@@ -349,7 +390,7 @@ void GCaMP::fixedStep_LA(double deltat, int ns){
 	      double konN = Gparams(0)*exp(Gparams(2)*logCa);
         double konC = Gparams(3)*exp(Gparams(5)*logCa);
 
-        setGmat_konN_konC(konN, konC);
+        setGmat_konN_konC(Gmat, konN, konC);
         arma::vec dG_dt  = Gmat*G;
         Gflux = flux_konN_konC(konN, konC, G);
 
@@ -384,7 +425,8 @@ void GCaMP::fixedStep_LA(double deltat, int ns){
 double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& state_in, arma::vec& state_out){
 
     arma::vec G = state_in(arma::span(0,8));
-
+    arma::mat::fixed<9,9> Gmatrix;
+    
     double BCa = state_in(9);
     double dBCa_dt;
 
@@ -398,7 +440,10 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
 
     arma::vec timesteps = arma::regspace(0,finedt,deltat);
     double calcium_input;
-    
+
+    // Intiliaze the Gmatrix
+    fillGmat(Gmatrix, Ca);
+
     for(unsigned int i=1;i<timesteps.n_elem;++i){
 
         calcium_input = (i==1) ? ns*DCaT/finedt : 0;
@@ -407,8 +452,8 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
 	      double konN = Gparams(0)*exp(Gparams(2)*logCa);
         double konC = Gparams(3)*exp(Gparams(5)*logCa);
 
-        setGmat_konN_konC(konN, konC);
-        arma::vec dG_dt  = Gmat*G;
+        setGmat_konN_konC(Gmatrix, konN, konC);
+        arma::vec dG_dt  = Gmatrix*G;
         Gflux = flux_konN_konC(konN, konC, G);
 
         Cflux   = -gamma*(Ca-c0) + Gflux;

@@ -21,13 +21,15 @@ public:
     double fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& state_in, arma::vec& state_out);
     void evolve_test(double deltat, int ns);
     void evolve(double deltat, int ns, const arma::vec& state);
-    
+    void evolve_threadsafe(double deltat, int ns, const arma::vec& state_in, arma::vec& state_out, double & dff_out);
+
     arma::vec steady_state(double c0);
     void init();
     double flux(double ca, const arma::vec& G);
     double flux_konN_konC(double konN, double konC, const arma::vec& G);
     void setGmat(double ca);
-    void setGmat_konN_konC(double konN, double konC);
+    void fillGmat(arma::mat::fixed<9,9> & Gmatrix, double ca);
+    void setGmat_konN_konC(arma::mat::fixed<9,9> & Gmatrix, double konN, double konC);
     void setState(double ca);
     void setTimeStepMode(TimeStepMode);
     double getDFF();
