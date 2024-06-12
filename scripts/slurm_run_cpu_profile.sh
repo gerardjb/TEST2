@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -n 32
-#SBATCH --exclude=della-r4c[1-4]n[1-16],della-r1c[3,4]n[1-16]
+#SBATCH -x
 #SBATCH -t 00:10:00
 
 module load intel-vtune/oneapi

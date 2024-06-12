@@ -32,3 +32,6 @@ Ground_truth/*
 
 # Outputs for pgas test, when run outside of pytest.
 tests/sample_data/output/
+
+# Ignore slurm output files
+slurm-*.out
