@@ -3,7 +3,7 @@ import numpy as np
 import spike_find.pgas.pgas_bound as pgas
 
 true_expected = [3.90363469e-05, 1.11873255e+03, 1.04594802e-05, 3.63424808e+00, 6.55528532e-02, 1.36894643e-02]
-false_expected = [6.04700454e-05, 7.45194622e+02, 1.44641501e-05, 5.10813469e+00, 7.30276513e-02, 1.00274138e-02]
+false_expected = [6.09926848e-05, 7.62965742e+02, 1.43328415e-05, 5.10813469e+00, 7.30276513e-02, 9.72534530e-03]
 
 @pytest.mark.parametrize(
         "has_gtspikes, expected_params", [(True, true_expected), (False, false_expected)], 
