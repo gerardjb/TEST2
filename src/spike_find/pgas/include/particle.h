@@ -57,7 +57,7 @@ class SMC{
         SMC(arma::vec&,constpar&,bool verbose); 
 
         double logf(const Particle&,const Particle&, const param&);
-        void move_and_weight(Particle&, const Particle&, double, const param &, bool); // move particles and weight
+        void move_and_weight(Particle&, const Particle&, double, const param &, double, double, bool); // move particles and weight
         void move_and_weight_GTS(Particle&, const Particle&, double, const param &, double, double, bool); // move particles and weight
 
         void rmu(Particle &, double, const param &, bool); // draw initial state
