@@ -200,18 +200,6 @@ void GCaMP::fillGmat(arma::mat::fixed<9,9> & Gmatrix, double ca){
 	konN   = Gparams(0)*pow(ca,Gparams(2));
   konC   = Gparams(3)*pow(ca,Gparams(5));
 
-// note: because only 2 parameters need to be updated when changing calcium level, perhaps here we can optimize something
-
-//	Gmat = {{-(konN+konC),koffN,koffPN,0,koffC,koffX2,0,0,0},
-//            {konN,-(koffN+konPN+konC),0,0,0,0,koffPC,koffC,0},
-//            {0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC},
-//            {0,0,konC,-(koffC+konX+koffPN),0,0,0,konPN,0},
-//            {konC,0,0,koffPN,-(koffC+konPC+konN),koffPC,0,koffN,0},
-//            {0,0,0,0,konPC,-(koffPC+konN+koffX2),koffN,0,koffPN},
-//            {0,0,0,0,0,konN,-(koffN+konPN+koffPC),konX,0},
-//            {0,konC,0,0,konN,0,0,-(koffC+koffN+konX+konPN),0},
-//            {0,0,0,konX,0,0,konPN,0,-(koffPN+koffPC)}};
-
 	Gmatrix = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
 		    {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
 			{0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
