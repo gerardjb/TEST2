@@ -11,6 +11,9 @@
 #include<string>
 #include"include/GCaMP_model.h"
 
+#include <Kokkos_Core.hpp>
+
+
 using namespace std;
 
 class Particle
@@ -26,6 +29,50 @@ class Particle
         void print();
         Particle();
         int index;
+};
+
+// typedef Kokkos::OpenMP   ExecSpace;
+// typedef Kokkos::OpenMP        MemSpace;
+typedef Kokkos::Cuda          ExecSpace;
+typedef Kokkos::CudaSpace     MemSpace;
+
+// typedef Kokkos::LayoutLeft   Layout;
+typedef Kokkos::LayoutRight  Layout;
+
+typedef Kokkos::View<double*, Layout, MemSpace>   VectorType;
+typedef Kokkos::View<double**, Layout, MemSpace>  MatrixType;
+typedef Kokkos::View<int*, Layout, MemSpace>   IntVectorType;
+typedef Kokkos::View<int**, Layout, MemSpace>  IntMatrixType;
+
+// A class to store N particles over time. First dimension of all arrays is time, second is particle index
+class ParticleArray
+{
+    public:
+        MatrixType B;
+        IntMatrixType burst;
+        Kokkos::View<double**[12]> C;
+        IntMatrixType S;
+        MatrixType logWeight;
+        IntMatrixType ancestor;
+        IntMatrixType index;
+
+        // Host mirrors
+        MatrixType::HostMirror B_h;
+        IntMatrixType::HostMirror burst_h;
+        Kokkos::View<double**[12]>::HostMirror C_h;
+        IntMatrixType::HostMirror S_h;
+        MatrixType::HostMirror logWeight_h;
+        IntMatrixType::HostMirror ancestor_h;
+        IntMatrixType::HostMirror index_h;
+
+        ParticleArray(int N, int T);
+
+        void set_particle(int t, int idx, const Particle &p);
+        void get_particle(int t, int idx, Particle &p);
+
+        void copy_to_device();
+        void copy_to_host();
+
 };
 
 class Trajectory

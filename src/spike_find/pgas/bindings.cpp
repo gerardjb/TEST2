@@ -22,6 +22,7 @@
 #include "include/particle.h"
 #include "include/utils.h"*/
 
+#include <Kokkos_Core.hpp>
 
 namespace py = pybind11;
 
@@ -32,6 +33,12 @@ py::array_t<double> get_final_params(Analyzer& analyzer) {
   std::copy(analyzer.final_params.begin(), analyzer.final_params.end(), result.mutable_data());
   return result;
 }
+
+auto cleanup_callback = []() {
+	// perform cleanup here -- this function is called with the GIL held
+	// You must call finalize() after you are done using Kokkos.
+	Kokkos::finalize();
+};
 
 PYBIND11_MODULE(pgas_bound, m) {
 	// bindings for Analyzer.cpp
@@ -144,8 +151,11 @@ PYBIND11_MODULE(pgas_bound, m) {
 				.def("integrateOverTime2", &GCaMP::integrateOverTime2, py::arg("time"), py::arg("spike_times"))
         .def("getDFFValues", &GCaMP::getDFFValues);
 				// .def_readwrite("DFF", &GCaMP::DFF); // Removed to prevent crosstalk with integrateOverTime
-				
-	/*// bindings for param.cpp
+
+    // Add Kokkos cleanup callback	
+    m.add_object("_cleanup", py::capsule(cleanup_callback));
+	
+  /*// bindings for param.cpp
 		py::class_<param>(m, "param")
         .def(py::init<>())
         .def(py::init<std::string>())

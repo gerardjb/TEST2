@@ -40,11 +40,75 @@ size_t gsl_ran_discrete_from_uniform(const gsl_ran_discrete_t *g, double u)
 
 using namespace std;
 
+
+ParticleArray::ParticleArray(int N, int T){
+    B = MatrixType("B",T,N);
+    burst = IntMatrixType("burst",T,N);
+    C = Kokkos::View<double**[12]>("C",T,N);
+    S = IntMatrixType("S",T,N);
+    logWeight = MatrixType("logWeight",T,N);
+    ancestor = IntMatrixType("ancestor",T,N);
+    index = IntMatrixType("index",T,N);
+
+    B_h = Kokkos::create_mirror_view(B);
+    burst_h = Kokkos::create_mirror_view(burst);
+    C_h = Kokkos::create_mirror_view(C);
+    S_h = Kokkos::create_mirror_view(S);
+    logWeight_h = Kokkos::create_mirror_view(logWeight);
+    ancestor_h = Kokkos::create_mirror_view(ancestor);
+    index_h = Kokkos::create_mirror_view(index);
+}
+
+void ParticleArray::set_particle(int t, int idx, const Particle &p)
+{
+    B_h(t,idx) = p.B;
+    burst_h(t,idx) = p.burst;
+    for(int i=0;i<12;i++) C_h(t,idx,i) = p.C(i);
+    S_h(t,idx) = p.S;
+    logWeight_h(t,idx) = p.logWeight;
+    ancestor_h(t,idx) = p.ancestor;
+    index_h(t,idx) = p.index;
+}
+
+void ParticleArray::get_particle(int t, int idx, Particle &p)
+{
+    p.B = B(t,idx);
+    p.burst = burst(t,idx);
+    for(int i=0;i<12;i++) p.C(i) = C(t,idx,i);
+    p.S = S(t,idx);
+    p.logWeight = logWeight(t,idx);
+    p.ancestor = ancestor(t,idx);
+    p.index = index(t,idx);
+}
+
+void ParticleArray::copy_to_device()
+{
+    Kokkos::deep_copy(B,B_h);
+    Kokkos::deep_copy(burst,burst_h);
+    Kokkos::deep_copy(C,C_h);
+    Kokkos::deep_copy(S,S_h);
+    Kokkos::deep_copy(logWeight,logWeight_h);
+    Kokkos::deep_copy(ancestor,ancestor_h);
+    Kokkos::deep_copy(index,index_h);
+}
+
+void ParticleArray::copy_to_host()
+{
+    Kokkos::deep_copy(B_h,B);
+    Kokkos::deep_copy(burst_h,burst);
+    Kokkos::deep_copy(C_h,C);
+    Kokkos::deep_copy(S_h,S);
+    Kokkos::deep_copy(logWeight_h,logWeight);
+    Kokkos::deep_copy(ancestor_h,ancestor);
+    Kokkos::deep_copy(index_h,index);
+}
+
+
 // PARTICLE CLASS
 // -----------------------------------------------------------
 //
 Particle::Particle(){
-    C.set_size(11);
+    C.set_size(12);
     B=0;
     burst=0;
     S=0;
@@ -592,7 +656,18 @@ void SMC::PF(const param &par){
 
   
 }
- 
+
+// A global to keep track whether Kokkos has been setup.
+bool Kokkos_Initialized = false;
+
+void init_kokkos()
+{
+	if (!Kokkos_Initialized) {
+		Kokkos::initialize();
+		Kokkos_Initialized = true;
+	}
+}
+
 void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out){
 
     unsigned int t,a;
@@ -644,8 +719,17 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     vector<double> g_noise(nparticles);
     vector<double> u_noise(nparticles);
         
+    init_kokkos();
+    
+    // Copy the state of particles for all times to our structure of arrays on device memory
+    ParticleArray particleArray(nparticles, TIME);
+    for(t=0;t<TIME;t++)
+        for(i=0;i<nparticles;i++)
+            particleArray.set_particle(t, i, particleSystem[t][i]);
+    particleArray.copy_to_device();
+
     for(t=1;t<TIME;++t){
-        // cout<<"    "<<t<<"      \r"<<flush;
+        cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0
         #pragma omp parallel for schedule(static)
         for(i=0;i<nparticles;i++){
