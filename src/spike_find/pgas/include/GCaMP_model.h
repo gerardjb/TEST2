@@ -10,7 +10,7 @@ class GCaMP {
 public:
     GCaMP(double G_tot,double gamma, double DCaT, double Rf, double gam_in, double gam_out, string Gparam_file="");
 		GCaMP(string Gparam_file, string Cparam_file);
-		GCaMP(const arma::vec Gparams_in, const arma::vec Cparams_in);
+		GCaMP(double* Gparams_in, const double* Cparams_in);
 		
 		void initial_setup();
     void setParams(double G_tot,double gamma, double DCaT, double Rf, double gam_in, double gam_out);
@@ -40,8 +40,10 @@ public:
     arma::vec::fixed<12> initial_state;
     double DFF;
     
-    arma::vec::fixed<14> Gparams;
-		arma::vec::fixed<6> Cparams;
+    double* Gparams;
+    size_t size_Gparams = 14;
+		double* Cparams;
+    size_t size_Cparams = 6;
     arma::mat::fixed<9,9> Gmat;
     arma::uvec::fixed<5> brightStates;
 

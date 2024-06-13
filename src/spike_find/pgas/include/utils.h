@@ -8,6 +8,21 @@ namespace utils {
     void w_from_logW(const double*,double*,unsigned int);
     double Z_from_logW(const double *,unsigned int n);
     double Z_factor(double,double,double,double);
+    double* read_vector_from_file(const string& filename, size_t& size);
+    arma::mat double_to_arma_mat(double* data, int rows, int cols);
+    double* arma_mat_to_double(const arma::mat& matrix, int rows, int cols);
+    void unrolled_matrix_vector_multiplication(double* matrix, int rows, int cols, double* vector, double* result);
+    std::vector<std::vector<double>> null_space(const std::vector<double>& mat_vec, int n);
+
+    //Template accumulation to replace arma::accu
+    template<typename T>
+    T accum(const T* arr, const std::vector<size_t>& indices) {
+        T sum = T(0);
+        for (size_t index : indices) {
+            sum += arr[index];
+        }
+        return sum;
+    }
 
     template <class vectype1, class vectype2>
     void subsample(const vectype1 &x_in,vectype2 &x_out, double freq_in, double freq_out){

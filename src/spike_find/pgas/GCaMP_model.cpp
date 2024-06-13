@@ -1,4 +1,5 @@
 #include"include/GCaMP_model.h"
+#include"include/utils.h"
 
 using namespace std;
 
@@ -16,7 +17,7 @@ GCaMP::GCaMP(double p1, double p2, double p3, double p4, double p5, double p6, s
   if (Gparam_file.empty()) {
     throw std::invalid_argument("GParam file cannot be empty");
   }
-  Gparams.load(Gparam_file, arma::raw_ascii);
+  Gparams = utils::read_vector_from_file(Gparam_file, size_Gparams);// with custom file reader to replace arma::raw_ascii load method
 
   // Call initial_setup to complete object initialization
   initial_setup();
@@ -28,25 +29,27 @@ GCaMP::GCaMP(string Gparam_file, string Cparam_file) {
 	
   // Load Gparams from file or default values
   if (Gparam_file.empty()) {
-    Gparams = {
-      4.0320349221094061E-7,
-			74.94798544278855,
-			1.7376760772790556,
-			3.62856271417812E-8,
-			0.6056939075038793,
-			1.1024894240446206,
-			30.699056808075316,
-			311.52950002130206,
-			0.15520110541159166,
-			43.466019961996466,
-			47.325861294367463,
-			368.84356191597425,
-			0.71415314204711966,
-			31.860437304985595
-    };
+      static const double default_Gparams[] = {
+        4.0320349221094061E-7,
+        74.94798544278855,
+        1.7376760772790556,
+        3.62856271417812E-8,
+        0.6056939075038793,
+        1.1024894240446206,
+        30.699056808075316,
+        311.52950002130206,
+        0.15520110541159166,
+        43.466019961996466,
+        47.325861294367463,
+        368.84356191597425,
+        0.71415314204711966,
+        31.860437304985595
+      };
+      copy(std::begin(default_Gparams), std::end(default_Gparams), Gparams);
+
   } else {
 		cout<<"Gparam_file = "<<Gparam_file<<endl;
-    Gparams.load(Gparam_file, arma::raw_ascii);
+    Gparams = utils::read_vector_from_file(Gparam_file, size_Gparams);
   }
 	
 	//Loading from cparams file (assumes order G_tot, gamma, DCaT, Rf, gam_in, gom_out
@@ -59,35 +62,35 @@ GCaMP::GCaMP(string Gparam_file, string Cparam_file) {
 		gam_in = 40;
 		gam_out = 4;
   } else {
-		Cparams.load(Cparam_file, arma::raw_ascii);
-		G_tot = Cparams(0);
-    gamma = Cparams(1);
-    DCaT = Cparams(2);
-		Rf = Cparams(3);
-		gam_in = Cparams(4);
-		gam_out = Cparams(5);
+		Cparams = utils::read_vector_from_file(Cparam_file, size_Cparams);
+		G_tot = Cparams[0];
+    gamma = Cparams[1];
+    DCaT = Cparams[2];
+		Rf = Cparams[3];
+		gam_in = Cparams[4];
+		gam_out = Cparams[5];
 	}
 	
 	cout<<"G_tot = "<<G_tot<<"; gam_out = "<<gam_out<<endl;
-	cout<<"G1 = "<<Gparams(0)<<"; G6 = "<<Gparams(5)<<endl;
+	cout<<"G1 = "<<Gparams[0]<<"; G6 = "<<Gparams[5]<<endl;
 	
   // Call initial_setup to complete object initialization
   initial_setup();
 }
 
 // Passing in the parameters as numeric types
-GCaMP::GCaMP(const arma::vec Gparams_in, const arma::vec Cparams_in) {
+GCaMP::GCaMP(double* Gparams_in, const double* Cparams_in) {
   // Set member variables from passed-in arguments
-	G_tot = Cparams_in(0);
-  gamma = Cparams_in(1);
-  DCaT = Cparams_in(2);
-  Rf = Cparams_in(3);
-  gam_in = Cparams_in(4);
-  gam_out = Cparams_in(5);
+	G_tot = Cparams_in[0];
+  gamma = Cparams_in[1];
+  DCaT = Cparams_in[2];
+  Rf = Cparams_in[3];
+  gam_in = Cparams_in[4];
+  gam_out = Cparams_in[5];
   Gparams = Gparams_in;  // Assuming Gparams is already a vector of appropriate size
 	
 	cout<<"G_tot = "<<G_tot<<"; gam_out = "<<gam_out<<endl;
-	cout<<"G1 = "<<Gparams(0)<<"; G6 = "<<Gparams(5)<<endl;
+	cout<<"G1 = "<<Gparams[0]<<"; G6 = "<<Gparams[5]<<endl;
   // Call initial_setup to complete object initialization
   initial_setup();
 }
@@ -96,22 +99,22 @@ GCaMP::GCaMP(const arma::vec Gparams_in, const arma::vec Cparams_in) {
 void GCaMP::initial_setup() {
   brightStates = {2, 3, 5, 6, 8};
 
-  Gparams(0) = Gparams(1) / pow(Gparams(0), Gparams(2));
-  Gparams(3) = Gparams(4) / pow(Gparams(3), Gparams(5));
+  Gparams[0] = Gparams[1] / pow(Gparams[0], Gparams[2]);
+  Gparams[3] = Gparams[4] / pow(Gparams[3], Gparams[5]);
 	
 	
   kapB = B_tot / (koff_B / kon_B);
 
   BCa0 = kon_B * c0 / (kon_B * c0 + koff_B) * B_tot;
 
-  konN = Gparams(0) * pow(c0, Gparams(2)); koffN = Gparams(1);
-  konC = Gparams(3) * pow(c0, Gparams(5)); koffC = Gparams(4);
+  konN = Gparams[0] * pow(c0, Gparams[2]); koffN = Gparams[1];
+  konC = Gparams[3] * pow(c0, Gparams[5]); koffC = Gparams[4];
 
-  konPN = Gparams(6); koffPN = Gparams(7);
-  konPC = Gparams(8); koffPC = Gparams(9);
+  konPN = Gparams[6]; koffPN = Gparams[7];
+  konPC = Gparams[8]; koffPC = Gparams[9];
 
-  konPN2 = Gparams(10); koffPN2 = Gparams(11);
-  konPC2 = Gparams(12); koffPC2 = Gparams(13);
+  konPN2 = Gparams[10]; koffPN2 = Gparams[11];
+  konPC2 = Gparams[12]; koffPC2 = Gparams[13];
 
   sigma2_calcium_spike = pow(FWHM, 2) / (8 * log(2));
 	
@@ -119,13 +122,13 @@ void GCaMP::initial_setup() {
 
   setState(c0);
 
-  arma::vec G0_v = steady_state(0);
-  arma::vec Gsat_v = steady_state(csat);
-  arma::vec Ginit_v = steady_state(c0);
+  double* G0_v = steady_state(0);
+  double* Gsat_v = steady_state(csat);
+  double* Ginit_v = steady_state(c0);
 
-  G0 = arma::accu(G0_v(brightStates));
-  Gsat = arma::accu(Gsat_v(brightStates));
-  Ginit = arma::accu(Ginit_v(brightStates));
+  G0 = utils::accum(G0_v,brightStates);
+  Gsat = utils::accum(Gsat_v,brightStates);
+  Ginit = utils::accum(Ginit_v,brightStates);
 
   DFF = 0;
 }
@@ -139,13 +142,13 @@ void GCaMP::setParams(double p1, double p2, double p3, double p4, double p5, dou
     gam_in = p5;
     gam_out = p6;
 
-    arma::vec G0_v    = steady_state(0);
-    arma::vec Gsat_v  = steady_state(csat);
-    arma::vec Ginit_v = steady_state(c0);
+    double* G0_v    = steady_state(0);
+    double* Gsat_v  = steady_state(csat);
+    double* Ginit_v = steady_state(c0);
 
-    G0     =  arma::accu(G0_v(brightStates));
-    Gsat   =  arma::accu(Gsat_v(brightStates));
-    Ginit  =  arma::accu(Ginit_v(brightStates));
+    G0     =  utils::accum(G0_v,brightStates);
+    Gsat   =  utils::accum(Gsat_v,brightStates);
+    Ginit  =  utils::accum(Ginit_v,brightStates);
    
 }
 
@@ -168,8 +171,12 @@ void GCaMP::setGmat_konN_konC(arma::mat::fixed<9,9> & Gmatrix, double konN, doub
 
 void GCaMP::setGmat(double ca){
 
-	konN   = Gparams(0)*pow(ca,Gparams(2));
-  konC   = Gparams(3)*pow(ca,Gparams(5));
+  if (Gmat == nullptr) {
+      Gmat = new double[Gmat_size];
+  }
+
+	konN   = Gparams[0]*pow(ca,Gparams[2]);
+  konC   = Gparams[3]*pow(ca,Gparams[5]);
 
 // note: because only 2 parameters need to be updated when changing calcium level, perhaps here we can optimize something
 
@@ -183,39 +190,43 @@ void GCaMP::setGmat(double ca){
 //            {0,konC,0,0,konN,0,0,-(koffC+koffN+konX+konPN),0},
 //            {0,0,0,konX,0,0,konPN,0,-(koffPN+koffPC)}};
 
-	Gmat = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
-		    {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
-			{0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
-			{0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
-			{konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0},
-			{0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2},
-			{0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0},
-			{0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0},
-			{0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)}};
+	std::vector<double> G_temp = {-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0,
+		    konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0,
+			0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2,
+			0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0,
+			konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0,
+			0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2,
+			0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0,
+			0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0,
+			0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)};
+
+  std:copy(G_temp.begin(),G_temp.end(),Gmat);
 
 }
 
-void GCaMP::fillGmat(arma::mat::fixed<9,9> & Gmatrix, double ca){
+void GCaMP::fillGmat(double & Gmatrix, double ca){
 
-	konN   = Gparams(0)*pow(ca,Gparams(2));
-  konC   = Gparams(3)*pow(ca,Gparams(5));
+	konN   = Gparams[0]*pow(ca,Gparams[2]);
+  konC   = Gparams[3]*pow(ca,Gparams[5]);
 
-	Gmatrix = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
-		    {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
-			{0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
-			{0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
-			{konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0},
-			{0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2},
-			{0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0},
-			{0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0},
-			{0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)}};
+	std::vector<double> G_temp = {-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0,
+		    konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0,
+			0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2,
+			0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0,
+			konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0,
+			0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2,
+			0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0,
+			0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0,
+			0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)};
+
+  std:copy(G_temp.begin(),G_temp.end(),Gmatrix);
 
 }
 
 double GCaMP::flux(double ca, const arma::vec& G){
 
-	konN   = Gparams(0)*pow(ca,Gparams(2));
-  konC   = Gparams(3)*pow(ca,Gparams(5));
+	konN   = Gparams[0]*pow(ca,Gparams[2]);
+  konC   = Gparams[3]*pow(ca,Gparams[5]);
 
   // Calculate fluxes per binding site
   double N = -(konN*(G(0) + G(4) + G(5))) +
@@ -251,14 +262,45 @@ double GCaMP::flux_konN_konC(double konN, double konC, const arma::vec& G){
 
 
 
-arma::vec GCaMP::steady_state(double c0){
+double* GCaMP::steady_state(double c0){
 	setGmat(c0);
-	arma::mat u = arma::null(Gmat);
-	arma::vec ss = u.col(0);
-	ss = ss/arma::accu(ss)*G_tot;
+
+  arma::mat Gmat_arma = utils::double_to_arma_mat(Gmat, 9, 9) ;
+
+	arma::mat u = arma::null(Gmat_arma);
+	arma::vec ss_arma = u.col(0);
+	ss_arma = ss_arma/arma::accu(ss_arma)*G_tot;
     arma::vec b_c = {BCa0,c0,c0};
-    ss = arma::join_vert(ss, b_c);
-    return ss;
+    ss_arma = arma::join_vert(ss_arma, b_c);
+  
+  double* ss = utils::arma_mat_to_double(ss_arma, 9, 9);
+
+  return ss;
+/* //Here I was attempting to replace the null space and normalization functions with dependecy free ones. I borrowed a utils method for that,
+  //but for now I'm dropping that idea.
+  // Find null space of Gmat (example implementation)
+  std::vector<double> u = utils::null_space(& Gmat, Gmat_size,Gmat_size);
+
+  double* ss = new double[9];
+  for (size_t i = 0; i < 9; ++i) {
+    ss[i] = u[i * 9];
+  }
+
+  // Normalize ss
+  double sum_ss = std::accumulate(ss, ss + 9, 0.0);
+  for (size_t i = 0; i < 9; ++i) {
+    ss[i] = ss[i] / sum_ss * G_tot;
+  }
+
+  // Append BCa0, c0, c0 to ss
+  double* result = new double[12];
+  std::memcpy(result, ss, 9 * sizeof(double));
+  result[9] = BCa0;
+  result[10] = c0;
+  result[11] = c0;
+
+  delete[] ss;
+  return result;*/
 }
 
 void GCaMP::init(){
@@ -267,7 +309,7 @@ void GCaMP::init(){
 }
 
 void GCaMP::setState(double ca){
-    arma::vec is = steady_state(ca);
+    double* is = steady_state(ca);
     state = is;
     initial_state=is;
 }
@@ -306,7 +348,7 @@ void GCaMP::evolve_threadsafe(double deltat, int ns, const arma::vec& state_in, 
 
 void GCaMP::fixedStep(double deltat, int ns){
 
-    arma::vec G = state(arma::span(0,8));
+    double* G = new state(arma::span(0,8));
 
     double BCa = state(9);
     double dBCa_dt;
@@ -325,7 +367,8 @@ void GCaMP::fixedStep(double deltat, int ns){
     
     for(unsigned int i=1;i<timesteps.n_elem;++i){
         setGmat(Ca);
-        arma::vec dG_dt  = Gmat*G;
+        double* dG_dt = new double[];
+        utils::unrolled_matrix_vector_multiplication(Gmat, 9, 9, G, dG_dt);// Gmat*G;
         Gflux = flux(Ca,G);
 
         dBCa_dt = kon_B*(B_tot-BCa)*Ca - koff_B*BCa;
@@ -375,8 +418,8 @@ void GCaMP::fixedStep_LA(double deltat, int ns){
         calcium_input = (i==1) ? ns*DCaT/finedt : 0;
 
         double logCa = log(Ca);
-	      double konN = Gparams(0)*exp(Gparams(2)*logCa);
-        double konC = Gparams(3)*exp(Gparams(5)*logCa);
+	      double konN = Gparams[0]*exp(Gparams[2]*logCa);
+        double konC = Gparams[3]*exp(Gparams[5]*logCa);
 
         setGmat_konN_konC(Gmat, konN, konC);
         arma::vec dG_dt  = Gmat*G;
@@ -437,8 +480,8 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
         calcium_input = (i==1) ? ns*DCaT/finedt : 0;
 
         double logCa = log(Ca);
-	      double konN = Gparams(0)*exp(Gparams(2)*logCa);
-        double konC = Gparams(3)*exp(Gparams(5)*logCa);
+	      double konN = Gparams[0]*exp(Gparams[2]*logCa);
+        double konC = Gparams[3]*exp(Gparams[5]*logCa);
 
         setGmat_konN_konC(Gmatrix, konN, konC);
         arma::vec dG_dt  = Gmatrix*G;

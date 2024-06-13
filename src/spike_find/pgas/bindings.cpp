@@ -125,7 +125,7 @@ PYBIND11_MODULE(pgas_bound, m) {
 		py::class_<GCaMP>(m, "GCaMP")
         .def(py::init<double, double, double, double, double, double, std::string>())
 				.def(py::init<std::string, std::string>(), py::arg("Gparam_file"), py::arg("Cparam_file"))
-				.def(py::init<const arma::vec,const arma::vec>(), py::arg("Gparams_in"), py::arg("Cparams_in"))
+				.def(py::init<double*,double*, py::arg("Gparams_in"), py::arg("Cparams_in"))//const py::array_t<double>
         .def("setParams", &GCaMP::setParams)
         .def("setGmat", &GCaMP::setGmat)
         .def("flux", &GCaMP::flux)
