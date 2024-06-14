@@ -478,14 +478,14 @@ def preprocess_groundtruth_artificial_noise_balanced(ground_truth_folders,before
           single_trace = sub_traces[:,trace_index]
           single_spikes = sub_traces_events[:,trace_index]
 
-          # Optional: Generates ground truth with causally smoothed kernel (see paper for details)
-          # if causal_kernel:
+          #Optional: Generates ground truth with causally smoothed kernel (see paper for details)
+          if causal_kernel:
 
-          #   single_spikes = convolve(single_spikes.astype(float),causal_smoothing_kernel,mode='same')
+            single_spikes = convolve(single_spikes.astype(float),causal_smoothing_kernel,mode='same')
 
-          # else:
+          else:
 
-          #   single_spikes = gaussian_filter(single_spikes.astype(float), sigma=smoothing)
+            single_spikes = gaussian_filter(single_spikes.astype(float), sigma=smoothing)
 
           recording_length = np.sum(~np.isnan(single_trace))
 
