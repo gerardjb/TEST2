@@ -51,6 +51,13 @@ Trajectory::Trajectory(unsigned int s, string fname){
     S.resize(s);
     S.zeros();
     Y.resize(s);
+    cout<<"end of Trajectory constructor"<<endl;
+    cout<<"s in Trajectory"<<s<<endl;
+    cout<<"size of B = "<<B.n_elem<<endl;
+    cout<<"size of burst = "<<burst.n_elem<<endl;
+    cout<<"size of C = "<<C.n_elem<<endl;
+    cout<<"size of S = "<<S.n_elem<<endl;
+    cout<<"size of Y = "<<Y.n_elem<<endl;
 
 }
 
@@ -177,7 +184,7 @@ SMC::SMC(string filename, int index, constpar& cst, bool has_header, int seed, u
 
 }
 
-SMC::SMC(arma::vec data_time, arma::vec data, int index, constpar& cst, bool has_header, int seed, unsigned int maxlen, string Gparam_file){
+SMC::SMC(arma::vec time, arma::vec data, int index, constpar& cst, bool has_header, int seed, unsigned int maxlen, string Gparam_file){
 		
     rng = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(rng, (seed==0) ? cst.seed : seed);
@@ -206,7 +213,10 @@ SMC::SMC(arma::vec data_time, arma::vec data, int index, constpar& cst, bool has
     constants = &cst;
 
     // The time units here are assumed to be seconds
-    constants->sampling_frequency = 1.0 / (data_time(1)-data_time(0));
+    data_time = time;
+    cout<<"data_time.n_elem="<<data_time.n_elem<<endl;
+    cout<<"data_time(0)="<<data_time(0)<<endl;
+    constants->sampling_frequency = 1.0 / (data_time(2)-data_time(1));
     cout << "setting sampling frequency to: "<<constants->sampling_frequency << endl;
     constants->set_time_scales();
     data_y = data;
@@ -214,6 +224,7 @@ SMC::SMC(arma::vec data_time, arma::vec data, int index, constpar& cst, bool has
 
     // set number of particles
     nparticles=constants->nparticles;
+
     TIME = data_time.n_elem;
     cout<<"nparticles: "<<nparticles<<endl;
     cout<<"TIME      : "<<TIME<<endl;

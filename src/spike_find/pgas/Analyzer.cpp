@@ -17,14 +17,19 @@ using namespace std;
         : time(time), data(data), constants_file(constants_file), output_folder(output_folder), column(column), tag(tag),
           niter(niter), trainedPriorFile(trainedPriorFile), append(append), trim(trim), verbose(verbose),
           gtSpike_file(gtSpike_file), has_trained_priors(has_trained_priors), has_gtspikes(has_gtspikes),
-          maxlen(maxlen), Gparam_file(Gparam_file) {}
+          maxlen(maxlen), Gparam_file(Gparam_file) {
+            cout<<"time[2]_in_constructor="<<time[2]<<endl;
+          }
 
 
 
 void Analyzer::run() {
     // Other init type stuff that was needed
     int existing_samples=0;
-		
+    cout<<"time(2)="<<time(2)<<endl;
+	cout<<"time(1)="<<time(1)<<endl;
+    cout<<"time(0)="<<time(0)<<endl;
+    cout<<"time.n_elem="<<time.n_elem<<endl;
     // Original main function code here, replace argc/argv handling with member variables
     constpar constants(constants_file);
     constants.output_folder = output_folder;
@@ -101,11 +106,14 @@ void Analyzer::run() {
 
     // Initialize the sampler (this will also reset the scales, that's why we need to initialize after we update the constants)
     // note the different constructors for SMC class here - one expects Analyzer to be called with a filename, the other takes data passed in directly
+    cout<<"time(1)="<<time(1)<<endl;
+    cout<<"time(0)="<<time(0)<<endl;
     SMC sampler(time, data, column, constants, false, 0, maxlen, Gparam_file);
-
+    cout<<"line 112_Analyzer"<<endl;
     // Initialize the trajectory
+    cout<<"sampler.TIME = "<<sampler.TIME<<endl;
     Trajectory traj_sam1(sampler.TIME, ""), traj_sam2(sampler.TIME, output_folder + "/traj_samples_" + tag + ".dat");
-
+    cout<<"sampler.TIME = "<<sampler.TIME<<endl;
     for (unsigned int t = 0; t < sampler.TIME; ++t) {
         traj_sam1.B(t) = 0;
         traj_sam1.burst(t) = 0;
@@ -113,8 +121,9 @@ void Analyzer::run() {
         traj_sam1.S(t) = 0;
         if (has_gtspikes) traj_sam1.S(t) = gtSpikes(t);
         traj_sam1.Y(t) = 0;
+        //cout<<t<<endl;
     }
-
+    cout<<"line 124_Analyzer"<<endl;
     // set initial parameters 
     if (append) {
         cout << "Use parameters from previous analysis" << endl;
