@@ -43,9 +43,13 @@ dependencies = [
  editable.verbose = true
  cmake.args = [
   '-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake', 
-  '-DCMAKE_BUILD_TYPE=RelWithDebInfo',
-
+  
+  '-DCMAKE_BUILD_TYPE=Release',
+  # '-DCMAKE_BUILD_TYPE=RelWithDebInfo',
+  # '-DCMAKE_BUILD_TYPE=Debug',
+ 
   # Kokkos stuff,
+  # '-DKOKKOS_DEBUG=ON',
   '-DKokkos_ENABLE_SERIAL=ON',
   '-DKokkos_ENABLE_OPENMP=ON',
   '-DKokkos_ENABLE_CUDA=ON',

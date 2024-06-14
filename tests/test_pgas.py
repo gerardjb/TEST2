@@ -58,5 +58,4 @@ def test_mcmc(tmp_path, has_gtspikes, expected_params):
 
 if __name__ == "__main__":
     from pathlib import Path
-    test_mcmc(Path("tests/sample_data/output", True,
-                   [3.90363469e-05, 1.11873255e+03, 1.04594802e-05, 3.63424808e+00, 6.55528532e-02, 1.36894643e-02]))
+    test_mcmc(Path("tests/sample_data/output"), False, false_expected)

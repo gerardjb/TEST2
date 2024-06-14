@@ -15,7 +15,7 @@ find_package(Kokkos REQUIRED)
 
 file(GLOB PGAS_SRCS CONFIGURE_DEPENDS src/spike_find/pgas/*.cpp)
 
-pybind11_add_module(pgas_bound MODULE src/spike_find/pgas/bindings.cpp ${PGAS_SRCS})
+pybind11_add_module(pgas_bound MODULE src/spike_find/pgas/bindings.cpp ${PGAS_SRCS} NO_EXTRAS)
 
 target_include_directories(pgas_bound PRIVATE src/spike_find/pgas)
 

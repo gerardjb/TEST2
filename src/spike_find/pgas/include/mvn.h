@@ -1,6 +1,5 @@
 #ifndef MVN_H 
 #define MVN_H 
-
 #include<armadillo>
 #include<gsl/gsl_rng.h>
 

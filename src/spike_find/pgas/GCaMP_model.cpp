@@ -427,6 +427,7 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
     double dt;
 
     arma::vec timesteps = arma::regspace(0,finedt,deltat);
+    int nsteps = timesteps.n_elem;
     double calcium_input;
 
     // Intiliaze the Gmatrix
@@ -468,8 +469,15 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
     state_out(9)  = BCa;
     state_out(10) = Ca;
     state_out(11) = Ca_in;
+    
+    
+    double brightStatesSum = 0.0;
+    for(unsigned int i=0;i<5;i++) brightStatesSum += G[brightStates[i]];
 
-    double DFF_out = (arma::accu(G(brightStates)) - Ginit)/(Ginit-G0+(Gsat-G0)/(Rf-1));
+    // double brightStates2 = arma::accu(G(brightStates));
+
+    // double DFF_out = (arma::accu(G(brightStates)) - Ginit)/(Ginit-G0+(Gsat-G0)/(Rf-1));
+    double DFF_out = (brightStatesSum - Ginit)/(Ginit-G0+(Gsat-G0)/(Rf-1));
 
     return DFF_out;
 }
@@ -624,4 +632,88 @@ double GCaMP::getAmplitude(){
     }
 
     return(resp.max());
+}
+
+// struct GCaMP_params {
+    
+//     double Gparams[14];
+
+//     // parameters that are allowed to vary
+//     double G_tot;
+//     double gamma;
+//     double DCaT;
+//     double Rf;
+
+//     // parameters that can be fixed
+//     // indicator 
+//     double konN,   koffN;
+// 		double konC,   koffC;
+// 		double konPN,  koffPN;
+// 		double konPN2, koffPN2;
+// 		double konPC,  koffPC;
+// 		double konPC2,  koffPC2;
+
+//     //calcium
+//     const double c0     = 5e-8;
+//     const double FWHM   = 2.8e-4;
+//     double sigma2_calcium_spike;
+//     double gam_in;
+//     double gam_out;
+    
+//     // buffer
+//     const double koff_B = 1e4;
+//     const double kon_B  = 1e8;
+//     const double B_tot  = 0.004;
+//     double BCa0;
+//     double kapB;
+
+//     // fluorescence
+//     const double csat   = 1e-2;
+
+//     // dFF normalization
+//     double G0, Gsat, Ginit;
+
+// };
+
+void GCaMP::read_params(GCaMP_params & params)
+{
+
+  for (int i = 0; i < 14; i++) 
+    params.Gparams[i] = Gparams(i);
+
+  // parameters that are allowed to vary
+  params.G_tot = G_tot;
+  params.gamma = gamma;
+  params.DCaT = DCaT;
+  params.Rf = Rf;
+  
+  // parameters that can be fixed
+  // indicator
+  params.konN = konN;
+  params.koffN = koffN;
+  params.konC = konC;
+  params.koffC = koffC;
+  params.konPN = konPN;
+  params.koffPN = koffPN;
+  params.konPN2 = konPN2;
+  params.koffPN2 = koffPN2;
+  params.konPC = konPC;
+  params.koffPC = koffPC;
+  params.konPC2 = konPC2;
+  params.koffPC2 = koffPC2;
+
+  //calcium
+  params.sigma2_calcium_spike = sigma2_calcium_spike;
+  params.gam_in = gam_in;
+  params.gam_out = gam_out;
+
+  // buffer
+  params.BCa0 = BCa0;
+  params.kapB = kapB;
+  
+  // dFF normalization
+  params.G0 = G0;
+  params.Gsat = Gsat;
+  params.Ginit = Ginit;
+
 }
