@@ -177,7 +177,7 @@ SMC::SMC(string filename, int index, constpar& cst, bool has_header, int seed, u
 
 }
 
-SMC::SMC(std::vector<double> time_vect, std::vector<double> data, int index, constpar& cst, bool has_header, int seed, unsigned int maxlen, string Gparam_file){
+SMC::SMC(arma::vec data_time, arma::vec data, int index, constpar& cst, bool has_header, int seed, unsigned int maxlen, string Gparam_file){
 		
     rng = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(rng, (seed==0) ? cst.seed : seed);
@@ -197,22 +197,24 @@ SMC::SMC(std::vector<double> time_vect, std::vector<double> data, int index, con
     }
     if(maxlen>0 && maxlen<tracemat.n_rows) tracemat = tracemat.rows(0,maxlen);
     */
-    arma::vec data_time(time_vect.size());
-    std::copy(time_vect.begin(), time_vect.end(), data_time.time_vect());
-    arma::vec data_y(data.size());
-    std::copy(data.begin(),data.end(),data_y.data());
+    //arma::vec data_time(time_vect);
+    //std::copy(time_vect.begin(), time_vect.end(), data_time);
+    //arma::vec data_y(data);
+    //std::copy(data.begin(),data.end(),data_y);
     //data_time  = time_vect;
     //data_y    = data;
     constants = &cst;
 
     // The time units here are assumed to be seconds
-    constants->sampling_frequency = 1.0 / (time_vect[1]-time_vect[0]);
+    constants->sampling_frequency = 1.0 / (data_time(1)-data_time(0));
     cout << "setting sampling frequency to: "<<constants->sampling_frequency << endl;
     constants->set_time_scales();
+    data_y = data;
+    cout<<"data_y.n_elem = "<<data_y.n_elem<<endl;
 
     // set number of particles
     nparticles=constants->nparticles;
-    TIME = time_vect.size();
+    TIME = data_time.n_elem;
     cout<<"nparticles: "<<nparticles<<endl;
     cout<<"TIME      : "<<TIME<<endl;
 
@@ -622,7 +624,7 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
 
     particleSystem[0][0].ancestor = -1;
 
-
+    
     // set spike count to all particles if training
     if(constants->KNOWN_SPIKES){
         for(t=0;t<TIME;t++){
@@ -632,16 +634,17 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
         }
     }
 
+    
     // define weights
     double w[nparticles],logW[nparticles];
     double ar_w[nparticles], ar_logW[nparticles];
 		
-
+    cout<<"data_y.n_rows = "<<data_y.n_rows<<"; data_y.n_cols ="<<data_y.n_cols<<endl;
     // initialize all particles at time 0 (excluded particle 0) and set all weights
     for(i=0;i<nparticles;++i){
         rmu(particleSystem[0][i],data_y(0),par,i==0); // i==0 allows to generate latent states only if i!=0
     }
-
+    cout<<"Line 645"<<endl;
     for(t=1;t<TIME;++t){
          cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0

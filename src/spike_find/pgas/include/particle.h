@@ -54,7 +54,7 @@ class SMC{
     public:
 
         SMC(string,int,constpar&,bool,int seed=0, unsigned int maxlen=0, string GParam_file=""); 
-        SMC(std::vector<double>,std::vector<double>,int,constpar&,bool,int seed=0, unsigned int maxlen=0, string GParam_file=""); 
+        SMC(arma::vec,arma::vec,int,constpar&,bool,int seed=0, unsigned int maxlen=0, string GParam_file=""); 
         SMC(arma::vec&,constpar&,bool verbose); 
 
         double logf(const Particle&,const Particle&, const param&);

@@ -6,7 +6,7 @@
 class Analyzer {
 public:
 
-    Analyzer(const std::vector<double>& time,const std::vector<double>& data, const std::string& constants_file, const std::string& output_folder,
+    Analyzer(const arma::vec& time,const arma::vec& data, const std::string& constants_file, const std::string& output_folder,
                  unsigned int column, const std::string& tag, unsigned int niter = 0, const std::string& trainedPriorFile = "",
                  bool append = false, unsigned int trim = 1, bool verbose = true, const std::string& gtSpike_file = "",
                  bool has_trained_priors = false, bool has_gtspikes = false, unsigned int maxlen = 0, const std::string& Gparam_file = "");
@@ -15,8 +15,8 @@ public:
 		std::vector<double> final_params;
 
 private:
-    std::vector<double> time;
-    std::vector<double> data;
+    arma::vec time;
+    arma::vec data;
     std::string constants_file;
     std::string output_folder;
     unsigned int column;

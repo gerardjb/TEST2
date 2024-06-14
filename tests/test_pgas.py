@@ -5,12 +5,11 @@ import spike_find.pgas.pgas_bound as pgas
 
 def test_mcmc(tmp_path):
     """Test a run of the particle Gibbs sampler to extract cell parameters"""
-    print("TESTing")
     # First we'll load in the original data as a numpy array
     filename = os.path.join("sample_data","LineScan-11302022-0954-009_0_data_poisson.dat")
     all_data = data = np.loadtxt(filename, delimiter=' ')
-    time = all_data[:,0]
-    data = all_data[:,1]
+    time = np.array(all_data[:,0])
+    data = np.array(all_data[:,1])
 
     # Run the particle Gibbs sampler to extract cell parameters
     ## Setting up parameters for the particle gibbs sampler
@@ -26,8 +25,7 @@ def test_mcmc(tmp_path):
     verbose=1
 
     analyzer = pgas.Analyzer(
-        #data_file=data_file,
-        time = time,
+        time=time,
         data=data,
         constants_file=constants_file,
         output_folder=output_folder,

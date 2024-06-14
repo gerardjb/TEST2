@@ -10,10 +10,10 @@
 
 using namespace std;
 
- Analyzer::Analyzer(const std::vector<double>& time, const std::vector<double>& data, const std::string& constants_file, const std::string& output_folder,
-             unsigned int column, const std::string& tag, unsigned int niter = 0, const std::string& trainedPriorFile = "",
-             bool append = false, unsigned int trim = 1, bool verbose = true, const std::string& gtSpike_file = "",
-             bool has_trained_priors = false, bool has_gtspikes = false, unsigned int maxlen = 0, const std::string& Gparam_file = "")
+ Analyzer::Analyzer(const arma::vec& time, const arma::vec& data, const std::string& constants_file, const std::string& output_folder,
+             unsigned int column, const std::string& tag, unsigned int niter, const std::string& trainedPriorFile,
+             bool append, unsigned int trim, bool verbose, const std::string& gtSpike_file,
+             bool has_trained_priors, bool has_gtspikes, unsigned int maxlen, const std::string& Gparam_file)
         : time(time), data(data), constants_file(constants_file), output_folder(output_folder), column(column), tag(tag),
           niter(niter), trainedPriorFile(trainedPriorFile), append(append), trim(trim), verbose(verbose),
           gtSpike_file(gtSpike_file), has_trained_priors(has_trained_priors), has_gtspikes(has_gtspikes),
@@ -22,8 +22,8 @@ using namespace std;
 
 
 void Analyzer::run() {
-		// Other init type stuff that was needed
-		int existing_samples=0;
+    // Other init type stuff that was needed
+    int existing_samples=0;
 		
     // Original main function code here, replace argc/argv handling with member variables
     constpar constants(constants_file);
@@ -101,11 +101,8 @@ void Analyzer::run() {
 
     // Initialize the sampler (this will also reset the scales, that's why we need to initialize after we update the constants)
     // note the different constructors for SMC class here - one expects Analyzer to be called with a filename, the other takes data passed in directly
-    if (data_file.empty()){
-        SMC sampler(time, data, column, constants, false, 0, maxlen, Gparam_file);
-    }else{
-        SMC sampler(data_file, column, constants, false, 0, maxlen, Gparam_file);
-    }
+    SMC sampler(time, data, column, constants, false, 0, maxlen, Gparam_file);
+
     // Initialize the trajectory
     Trajectory traj_sam1(sampler.TIME, ""), traj_sam2(sampler.TIME, output_folder + "/traj_samples_" + tag + ".dat");
 

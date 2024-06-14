@@ -36,7 +36,7 @@ py::array_t<double> get_final_params(Analyzer& analyzer) {
 PYBIND11_MODULE(pgas_bound, m) {
 	// bindings for Analyzer.cpp
 		py::class_<Analyzer>(m, "Analyzer")
-        .def(py::init<const std::vector<double>, const std::vector<double>, const std::string&, const std::string&, unsigned int, const std::string&, unsigned int,
+        .def(py::init<const arma::vec&, const arma::vec&, const std::string&, const std::string&, unsigned int, const std::string&, unsigned int,
                       const std::string&, bool, unsigned int, bool, const std::string&, bool, bool, unsigned int, const std::string&>(),
              py::arg("time"), py::arg("data"), py::arg("constants_file"), py::arg("output_folder"), py::arg("column"), py::arg("tag"),
              py::arg("niter") = 0, py::arg("trainedPriorFile") = "", py::arg("append") = false, py::arg("trim") = 1,
