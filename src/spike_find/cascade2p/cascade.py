@@ -35,10 +35,11 @@ import time
 import numpy as np
 import warnings
 from . import config, utils
+from . import models
 
 
 def train_model(
-    model_name, model_folder="Pretrained_models", ground_truth_folder="Ground_truth"
+    model_name, model_folder="Pretrained_models", ground_truth_folder="Ground_truth",model_type=models.default_model
 ):
 
     """Train neural network with parameters specified in the config.yaml file in the model folder
@@ -71,6 +72,7 @@ def train_model(
     """
     import tensorflow.keras
     from tensorflow.keras.optimizers import Adagrad
+    from tensorflow.keras.callbacks import CSVLogger
 
     model_path = os.path.join(model_folder, model_name)
     cfg_file = os.path.join(model_path, "config.yaml")
@@ -190,8 +192,10 @@ def train_model(
                 windowsize=cfg["windowsize"],
                 loss_function=cfg["loss_function"],
                 optimizer=cfg["optimizer"],
+                model=model_type
             )
 
+            # Change to variable in config dictionary (10^-3) general rule of thumb
             optimizer = Adagrad(learning_rate=0.05)
             model.compile(loss=cfg["loss_function"], optimizer=optimizer)
             print("length of X = ",len(X))
@@ -199,12 +203,30 @@ def train_model(
                 cfg["nr_of_epochs"], np.int(10 * np.floor(5e6 / len(X)))
             )
 
+            # Save loss data as a csv
+            log_dir = os.path.join(model_path, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            num_logs = len(os.listdir(log_dir))
+            log_file = 'log' + str(num_logs) + ".csv"
+            csv_logger = CSVLogger(os.path.join(log_dir, log_file), append=True)
+
+            # Find class weights to deal with imbalanced datasets
+            total = len(Y)
+            pos = np.sum(Y == 1)
+            neg = np.sum(Y == 0)
+ 
+            weight_for_0 = (1 / neg) * (total / 2.0)
+            weight_for_1 = (1 / pos) * (total / 2.0)
+ 
+            class_weight = {0: weight_for_0, 1: weight_for_1}
+
             model.fit(
                 X,
                 Y,
                 batch_size=cfg["batch_size"],
                 epochs=cfg["nr_of_epochs"],
                 verbose=cfg["verbose"],
+                callbacks = [csv_logger]
             )
 
             # save model
@@ -519,10 +541,20 @@ def create_model_folder(config_dictionary, model_folder="Pretrained_models"):
         config.write_config(cfg, os.path.join(model_path, "config.yaml"))
 
     else:
-        warnings.warn(
-            "There is already a folder called {}. ".format(cfg["model_name"])
-            + "Please rename your model."
-        )
+        #warnings.warn(
+        #    "There is already a folder called {}. ".format(cfg["model_name"])
+        #    + "Please rename your model."
+        #)
+
+        num_models = len([x for x in os.listdir(model_folder) if cfg["model_name"] in x])
+        cfg["model_name"] = cfg["model_name"] + "_" + str(num_models)
+        
+        model_path = os.path.join(model_folder, cfg["model_name"])
+        os.makedirs(model_path)
+        config.write_config(cfg, os.path.join(model_path, "config.yaml"))
+
+
+
 
 
 def get_model_paths(model_path):

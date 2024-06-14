@@ -55,7 +55,7 @@ from . import config
 
 
 
-def define_model(filter_sizes,filter_numbers,dense_expansion,windowsize,loss_function,optimizer):
+def define_model(filter_sizes,filter_numbers,dense_expansion,windowsize,loss_function,optimizer,model):
 
   """"
   Defines the model using the API of Keras.
@@ -68,31 +68,7 @@ def define_model(filter_sizes,filter_numbers,dense_expansion,windowsize,loss_fun
   Example: model = define_model(filter_sizes,filter_numbers,dense_expansion,windowsize,loss_function,optimizer)
 
   """
-
-  from tensorflow.keras.layers import Dense, Flatten, MaxPooling1D, Conv1D, Input
-  from tensorflow.keras import Model
-  from tensorflow.keras.optimizers import Adagrad
-
-  inputs = Input(shape=(windowsize,1))
-
-  conv_filter = Conv1D
-
-  outX = conv_filter(filter_numbers[0], filter_sizes[0], strides=1, activation='relu')(inputs)
-  outX = conv_filter(filter_numbers[1], filter_sizes[1], activation='relu')(outX)
-  outX = MaxPooling1D(2)(outX)
-  outX = conv_filter(filter_numbers[2], filter_sizes[2], activation='relu')(outX)
-  outX = MaxPooling1D(2)(outX)
-
-  outX = Dense(dense_expansion, activation='relu')(outX) # 'linear' units work here as well!
-  outX = Flatten()(outX)
-  predictions = Dense(1,activation='linear')(outX)
-  model = Model(inputs=[inputs],outputs=predictions)
-  optimizer = Adagrad(learning_rate=0.05)
-  model.compile(loss=loss_function, optimizer=optimizer)
-
-  return model
-
-
+  return model(filter_sizes,filter_numbers,dense_expansion,windowsize,loss_function,optimizer)
 
 
 def calculate_noise_levels(neurons_x_time, frame_rate):
@@ -141,7 +117,6 @@ def preprocess_traces(neurons_x_time, before_frac, window_size):
     X = np.full(shape=(dF_traces.shape[0], dF_traces.shape[1], window_size), fill_value=np.nan)
     X[:, start:end, :] = dF_traces[:, window_indexes]
     return X
-
 
 
 
@@ -236,7 +211,7 @@ def calibrated_ground_truth_artificial_noise(ground_truth_folder,noise_level,sam
             else:
 
               fluo_times_resampled = fluo_times
-
+            
             # Compute the baseline noise level for this recording
             base_noise = np.nanmedian(np.abs(np.diff(traces_mean)))*100/np.sqrt(sampling_rate)
             #print("base_noise = ",base_noise)
@@ -263,14 +238,14 @@ def calibrated_ground_truth_artificial_noise(ground_truth_folder,noise_level,sam
               # is correlated across replicas is not dominant; this is a heuristic procedure.
               # Limit the maximum number of replicas per ground truth trace to 500.
               nb_subROIs = np.minimum(500,np.ceil( 1.2*(noise_level/base_noise)**2 ))
-    
+
               if not replicas:
     
                 nb_subROIs = 1
     
               frame_rate = 1/np.nanmean(np.diff(fluo_times_resampled))
 
-    
+            
             else:
               if verbose>2:
                 print("noise_level >= base_noise and frame_rate > sampling_rate/2 was false")
@@ -291,11 +266,13 @@ def calibrated_ground_truth_artificial_noise(ground_truth_folder,noise_level,sam
               # Generate a noisified trace in each iteration of the for-loop
               # Noise is scaled with the square root of the mean fluorescence (fluo_level),
               # corresponding to POisson noise
+              
               for iii in range(int(nb_subROIs)):
     
                 fluo_level = np.sqrt(np.abs(traces_mean + 1))
                 fluo_level /= np.median(fluo_level)
                 
+                '''
                 # iterative determination of noise levels to add until it is within 0.1 of the target value
                 noise_std_adapted = deepcopy(noise_std)
                 correction = 1
@@ -309,7 +286,10 @@ def calibrated_ground_truth_artificial_noise(ground_truth_folder,noise_level,sam
                     correction = noise_check - noise_level
                     noise_std_adapted -= correction*noise_std_adapted*0.01
                 
-    
+                '''
+
+                sub_traces_single = traces_mean
+
                 # 'sub_traces' are sub-sampled replica traces from the same mean trace 'traces_mean';
                 # 'sub_traces_events' are the corresponding ground truth action potentials
     
@@ -364,7 +344,6 @@ def calibrated_ground_truth_artificial_noise(ground_truth_folder,noise_level,sam
       framerate_all[file_index] = frame_rate
 
     return sub_traces_all, sub_traces_events_all, framerate_all, events_all
-
 
 # ground_truth_folders=training_folders,
 # before_frac=cfg["before_frac"],
@@ -485,8 +464,8 @@ def preprocess_groundtruth_artificial_noise_balanced(ground_truth_folders,before
 
 
 
-    X = np.zeros((15000000,windowsize,))
-    Y = np.zeros((15000000,))
+    X = np.zeros((datapoint_counter,windowsize,))
+    Y = np.zeros((datapoint_counter,))
 
     # For-loop to generate the outputs 'X' and 'Y'
     counter = 0
@@ -500,13 +479,13 @@ def preprocess_groundtruth_artificial_noise_balanced(ground_truth_folders,before
           single_spikes = sub_traces_events[:,trace_index]
 
           # Optional: Generates ground truth with causally smoothed kernel (see paper for details)
-          if causal_kernel:
+          # if causal_kernel:
 
-            single_spikes = convolve(single_spikes.astype(float),causal_smoothing_kernel,mode='same')
+          #   single_spikes = convolve(single_spikes.astype(float),causal_smoothing_kernel,mode='same')
 
-          else:
+          # else:
 
-            single_spikes = gaussian_filter(single_spikes.astype(float), sigma=smoothing)
+          #   single_spikes = gaussian_filter(single_spikes.astype(float), sigma=smoothing)
 
           recording_length = np.sum(~np.isnan(single_trace))
 
