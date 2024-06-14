@@ -177,6 +177,54 @@ SMC::SMC(string filename, int index, constpar& cst, bool has_header, int seed, u
 
 }
 
+SMC::SMC(std::vector<double> time_vect, std::vector<double> data, int index, constpar& cst, bool has_header, int seed, unsigned int maxlen, string Gparam_file){
+		
+    rng = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(rng, (seed==0) ? cst.seed : seed);
+		
+    model = new GCaMP(cst.G_tot_mean,cst.gamma_mean,cst.DCaT_mean,cst.Rf_mean,cst.gam_in_mean, cst.gam_out_mean, Gparam_file);
+    model->setTimeStepMode((TimeStepMode)cst.TSMode);
+
+    arma::field <string> header;
+
+    /*
+    Stripping out un-needed calls to arma loading - this should more broadly prbably be re-worked such that the SMC constructor is more agnostic to the type of data (time, F) that is being passed in 
+
+    if(has_header){
+        tracemat.load(arma::csv_name(filename, header));
+    } else {
+        tracemat.load(filename);
+    }
+    if(maxlen>0 && maxlen<tracemat.n_rows) tracemat = tracemat.rows(0,maxlen);
+    */
+    arma::vec data_time(time_vect.size());
+    std::copy(time_vect.begin(), time_vect.end(), data_time.time_vect());
+    arma::vec data_y(data.size());
+    std::copy(data.begin(),data.end(),data_y.data());
+    //data_time  = time_vect;
+    //data_y    = data;
+    constants = &cst;
+
+    // The time units here are assumed to be seconds
+    constants->sampling_frequency = 1.0 / (time_vect[1]-time_vect[0]);
+    cout << "setting sampling frequency to: "<<constants->sampling_frequency << endl;
+    constants->set_time_scales();
+
+    // set number of particles
+    nparticles=constants->nparticles;
+    TIME = time_vect.size();
+    cout<<"nparticles: "<<nparticles<<endl;
+    cout<<"TIME      : "<<TIME<<endl;
+
+    // set particle system
+    particleSystem.resize(TIME);
+    for(unsigned int t=0;t<TIME;++t){
+        particleSystem[t] = new Particle[nparticles];
+        for(unsigned int j=0;j<nparticles;j++) particleSystem[t][j].index=j;
+    }
+
+}
+
 SMC::SMC(arma::vec &Y, constpar& cst, bool v){
 
     verbose=v;

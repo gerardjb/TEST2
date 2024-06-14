@@ -36,9 +36,9 @@ py::array_t<double> get_final_params(Analyzer& analyzer) {
 PYBIND11_MODULE(pgas_bound, m) {
 	// bindings for Analyzer.cpp
 		py::class_<Analyzer>(m, "Analyzer")
-        .def(py::init<const std::string&, const std::string&, const std::string&, unsigned int, const std::string&, unsigned int,
+        .def(py::init<const std::vector<double>, const std::vector<double>, const std::string&, const std::string&, unsigned int, const std::string&, unsigned int,
                       const std::string&, bool, unsigned int, bool, const std::string&, bool, bool, unsigned int, const std::string&>(),
-             py::arg("data_file"), py::arg("constants_file"), py::arg("output_folder"), py::arg("column"), py::arg("tag"),
+             py::arg("time"), py::arg("data"), py::arg("constants_file"), py::arg("output_folder"), py::arg("column"), py::arg("tag"),
              py::arg("niter") = 0, py::arg("trainedPriorFile") = "", py::arg("append") = false, py::arg("trim") = 1,
              py::arg("verbose") = true, py::arg("gtSpike_file") = "", py::arg("has_trained_priors") = false, py::arg("has_gtspikes") = false,
              py::arg("maxlen") = 0, py::arg("Gparam_file") = "")
