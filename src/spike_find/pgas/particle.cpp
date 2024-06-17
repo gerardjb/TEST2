@@ -1,4 +1,5 @@
 #include"include/particle.h"
+#include"particle_array.h"
 #include"include/utils.h"
 #include<gsl/gsl_sf_gamma.h>
 #include<gsl/gsl_math.h>
@@ -39,464 +40,6 @@ size_t gsl_ran_discrete_from_uniform(const gsl_ran_discrete_t *g, double u)
 }
 
 using namespace std;
-
-double fixedStep_LA_kernel(
-    double deltat, int ns,
-    const double * state_in, 
-    double * state_out,
-    const GCaMP_params & p)
-{
-
-    double G[9];
-
-    for(int i=0;i<9;i++) G[i] = state_in[i];
-
-    double BCa = state_in[9];
-    double dBCa_dt;
-
-    double Ca  = state_in[10];
-    double Ca_in = state_in[11];
-    double dCa_dt, dCa_in_dt;
-    
-    double Gflux, Cflux;
-    double finedt=100e-6;
-    double dt;
-
-    double calcium_input;
-
-    double konN,   koffN;
-    double konC,   koffC;
-    double konPN,  koffPN;
-    double konPN2, koffPN2;
-    double konPC,  koffPC;
-    double konPC2,  koffPC2;
-
-    // Load from the params struct
-    koffN = p.koffN;
-    koffC = p.koffC;
-    konPN = p.konPN;
-    koffPN = p.koffPN;
-    konPN2 = p.konPN2;
-    koffPN2 = p.koffPN2;
-    konPC = p.konPC;
-    koffPC = p.koffPC;
-    konPC2 = p.konPC2;
-    koffPC2 = p.koffPC2;
-    
-    // Calculate konN and konC
-    double logCa = log(Ca);
-    konN = p.Gparams[0]*exp(p.Gparams[2]*logCa);
-    konC = p.Gparams[3]*exp(p.Gparams[5]*logCa);
-  
-    // Intiliaze the Gmatrix
-	double Gmatrix[9][9] = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
-        {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
-        {0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
-        {0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
-        {konC,0,0,koffPN2,-(koffC+konPC+konN),0,0,koffN,0},
-        {0,0,0,0,konPC,-(koffPC+konN),koffN,0,koffPN2},
-        {0,0,0,0,0,konN,-(koffN+konPN2+koffPC2),konPC2,0},
-        {0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0},
-        {0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)}};
-
-    double dG_dt[9];
-    double old_t = 0;
-    double t = finedt;
-    int tstep_i = 1;
-    int n_steps = floor(deltat/finedt);
-    while(t <= (n_steps*finedt)) {
-
-        calcium_input = (tstep_i==1) ? ns*p.DCaT/finedt : 0;
-
-        double logCa = log(Ca);
-	    konN = p.Gparams[0]*exp(p.Gparams[2]*logCa);
-        konC = p.Gparams[3]*exp(p.Gparams[5]*logCa);
-
-        // Update the G matrix
-        Gmatrix[0][0] = -(konN+konC);
-        Gmatrix[1][0] = konN;
-        Gmatrix[1][1] = -(koffN+konPN+konC);
-        Gmatrix[2][2] = -(konC+koffPN);
-        Gmatrix[3][2] = konC;
-        Gmatrix[4][0] = konC;
-        Gmatrix[4][4] = -(koffC+konPC+konN);
-        Gmatrix[5][5] = -(koffPC+konN);
-        Gmatrix[6][5] = konN;
-        Gmatrix[7][1] = konC;
-        Gmatrix[7][4] = konN;
-       
-        // arma::vec dG_dt  = Gmatrix*G;
-        // Implement matrix vector product
-        for(int i=0;i<9;i++){
-            dG_dt[i] = 0;
-            for(int j=0;j<9;j++) dG_dt[i] += Gmatrix[i][j]*G[j];
-        }
-
-        // Gflux = flux_konN_konC(konN, konC, G);
-        // Calculate fluxes per binding site
-        double N = -(konN*(G[0] + G[4] + G[5])) +
-                koffN*(G[1] + G[6]+ G[7])  + 
-                koffPN*G[2]                + 
-                koffPN2*(G[3] + G[8]);
-
-        double C = -(konC *(G[0] + G[1] + G[2])) +
-                koffC*(G[4] + G[3] + G[7])  + 
-                koffPC*(G[5])+ 
-                koffPC2*(G[6]+G[8]);
-
-        int Csites=2;
-        Gflux = 2*N + Csites*C;
-
-        Cflux   = -p.gamma*(Ca-p.c0) + Gflux;
-        dBCa_dt = Cflux*p.kapB/(p.kapB + 1);
-        dCa_in_dt = p.gam_in*(Ca-p.c0) - p.gam_out*(Ca_in - p.c0);
-
-        dCa_dt  = -p.gamma*(Ca-p.c0) // pump out
-            -p.gam_in*(Ca - p.c0) + p.gam_out*(Ca_in - p.c0) //intra-compartmental exchange
-            + Gflux - dBCa_dt + calcium_input*1/(p.kapB + 1);
-
-        dt  = t-old_t;
-        
-        // G   = G   +  dt*dG_dt;
-        for(int i=0;i<9;i++) G[i] = G[i] + dt*dG_dt[i];
-
-        BCa = BCa +  dt*(dBCa_dt+p.kapB/(p.kapB+1)*calcium_input);
-        Ca  = Ca  +  dt*dCa_dt;
-        Ca_in = Ca_in + dt*dCa_in_dt;
-        old_t = t; 
-        t = finedt*tstep_i;
-        tstep_i++;
-    }
-
-    for(unsigned int i=0;i<9;i++) state_out[i] = G[i];
-    state_out[9]  = BCa;
-    state_out[10] = Ca;
-    state_out[11] = Ca_in;
-
-    int brightStates[5] = {2, 3, 5, 6, 8};
-    double brightStatesSum = 0.0;
-    for(unsigned int i=0;i<5;i++) brightStatesSum += G[brightStates[i]];
-
-    double DFF_out = (brightStatesSum - p.Ginit)/(p.Ginit-p.G0+(p.Gsat-p.G0)/(p.Rf-1));
-
-    return DFF_out;
-}
-
-
-ParticleArray::ParticleArray(int N, int T) : N(N), T(T) 
-{
-
-    B = MatrixType("B",N,T);
-    burst = IntMatrixType("burst",N,T);
-    C = Kokkos::View<double**[12], MemSpace>("C",N,T);
-    S = IntMatrixType("S",N,T);
-    logWeight = MatrixType("logWeight",N,T);
-    ancestor = IntMatrixType("ancestor",N,T);
-    index = IntMatrixType("index",N,T);
-
-    B_h = Kokkos::create_mirror_view(B);
-    burst_h = Kokkos::create_mirror_view(burst);
-    C_h = Kokkos::create_mirror_view(C);
-    S_h = Kokkos::create_mirror_view(S);
-    logWeight_h = Kokkos::create_mirror_view(logWeight);
-    ancestor_h = Kokkos::create_mirror_view(ancestor);
-    index_h = Kokkos::create_mirror_view(index);
-
-    // Intermediate arrays for the move and weight steps
-    log_probs = MatrixType("log_probs",N,maxspikes*2);
-    log_probs_h = Kokkos::create_mirror_view(log_probs);
-
-    probs = MatrixType("probs",N,maxspikes*2);
-    probs_h = Kokkos::create_mirror_view(probs);
-
-    discrete = IntVectorType("discrete",N);
-    discrete_h = Kokkos::create_mirror_view(discrete);
-
-    logW = VectorType("logW",N);
-    logW_h = Kokkos::create_mirror_view(logW);
-
-    ar_logW = VectorType("ar_logW",N);
-    ar_logW_h = Kokkos::create_mirror_view(ar_logW);
-}
-
-
-void ParticleArray::set_particle(int t, int idx, const Particle &p)
-{
-    B_h(idx,t) = p.B;
-    burst_h(idx,t) = p.burst;
-    for(int i=0;i<12;i++) C_h(idx,t,i) = p.C(i);
-    S_h(idx,t) = p.S;
-    logWeight_h(idx,t) = p.logWeight;
-    ancestor_h(idx,t) = p.ancestor;
-    index_h(idx,t) = p.index;
-}
-
-void ParticleArray::get_particle(int t, int idx, Particle &p)
-{
-    p.B = B_h(idx,t);
-    p.burst = burst_h(idx,t);
-    for(int i=0;i<12;i++) p.C(i) = C_h(idx,t,i);
-    p.S = S_h(idx,t);
-    p.logWeight = logWeight_h(idx,t);
-    p.ancestor = ancestor_h(idx,t);
-    p.index = index_h(idx,t);
-}
-
-void ParticleArray::copy_to_device()
-{
-    Kokkos::deep_copy(B,B_h);
-    Kokkos::deep_copy(burst,burst_h);
-    Kokkos::deep_copy(C,C_h);
-    Kokkos::deep_copy(S,S_h);
-    Kokkos::deep_copy(logWeight,logWeight_h);
-    Kokkos::deep_copy(ancestor,ancestor_h);
-    Kokkos::deep_copy(index,index_h);
-}
-
-void ParticleArray::copy_to_host()
-{
-    Kokkos::deep_copy(B_h,B);
-    Kokkos::deep_copy(burst_h,burst);
-    Kokkos::deep_copy(C_h,C);
-    Kokkos::deep_copy(S_h,S);
-    Kokkos::deep_copy(logWeight_h,logWeight);
-    Kokkos::deep_copy(ancestor_h,ancestor);
-    Kokkos::deep_copy(index_h,index);
-}
-
-bool ParticleArray::check_particle_system(int t, std::vector<Particle*> & particleSystem)
-{
-    copy_to_host();
-
-    bool die = false;
-
-    // Check that the particleArray and particleSystem are the same
-    for(int i=0;i<N;i++){
-        Particle p_cpu = particleSystem[t][i];
-        Particle p_gpu;
-        get_particle(t, i, p_gpu);
-        if (p_cpu.S != p_gpu.S) {
-            cout << "TIME=" << t << "  Particle(" << i << "): CPU S=" << p_cpu.S <<  " GPU S=" << p_gpu.S << endl;
-            die = true;
-        }
-        if (fabs(p_cpu.B - p_gpu.B) > 1e-10){
-            cout << "TIME=" << t << "  Particle(" << i << "): CPU B=" << p_cpu.B <<  " GPU B=" << p_gpu.B << endl;
-            die = true;
-        }
-        if (p_cpu.burst != p_gpu.burst) {
-            cout << "TIME=" << t << "  Particle(" << i << "): CPU burst=" << p_cpu.burst <<  " GPU burst=" << p_gpu.burst << endl;
-            die = true;
-        }
-        for(int j=0;j<12;j++){
-            if (fabs(p_cpu.C(j) - p_gpu.C(j)) > 1e-10) {
-                cout << "TIME=" << t << "  Particle(" << i << "): CPU C(" << j << ")=" << p_cpu.C(j) <<  " GPU C(" << j << ")=" << p_gpu.C(j) << endl;
-                die = true;
-            }
-        }
-        if (p_cpu.ancestor != p_gpu.ancestor) {
-            cout << "TIME=" << t << "  Particle(" << i << "): CPU ancestor=" << p_cpu.ancestor <<  " GPU ancestor=" << p_gpu.ancestor << endl;
-            die = true;
-        }
-        if (fabs(p_cpu.logWeight - p_gpu.logWeight) > 1e-10) {
-            cout << "TIME=" << t << "  Particle(" << i << "): CPU logWeight=" << p_cpu.logWeight <<  " GPU logWeight=" << p_gpu.logWeight << endl;
-            die = true;
-        }
-
-        if (die)
-            break;
-    }
-
-    return !die;
-}
-
-double ParticleArray::logf(
-    int part_idx_in, int t_in, 
-    int part_idx_out, int t_out, 
-    const param &par, constpar *constants) 
-{
-    double lf = 0;
-    double dt = 1.0/constants->sampling_frequency;
-    double W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
-        {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
-    double rate[2] = {par.r0*dt,par.r1*dt};
-
-    int pin_burst = burst(part_idx_in, t_in);
-    double pin_B = B(part_idx_in, t_in);
-    int pin_S = S(part_idx_in, t_in);
-    
-    int pout_burst = burst(part_idx_out, t_out);
-    double pout_B = B(part_idx_out, t_out);
-    int pout_S = S(part_idx_out, t_out);
-
-    lf += log(W[pin_burst][pout_burst]) +
-        pout_S*log(rate[pout_burst])-rate[pout_burst] - log(tgamma(pout_S+1)) +
-        -0.5*pow((pout_B-pin_B)/(constants->bm_sigma*sqrt(dt)),2);
-
-    return(lf);
-}
-
-void ParticleArray::calc_ancestor_resampling(
-    int t, const param &par, constpar *constants)
-{
-    // Retrieve weights and calculate ancestor resampling weights
-    Kokkos::parallel_for("calc_ancestor_weights",
-        Kokkos::RangePolicy<ExecSpace>(0, N),
-            KOKKOS_CLASS_LAMBDA(const int part_idx) {
-                
-                double lf = 0;
-                double dt = 1.0/constants->sampling_frequency;
-                double W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
-                    {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
-                double rate[2] = {par.r0*dt,par.r1*dt};
-
-                int part_idx_in = part_idx;
-                int t_in = t-1;
-                int part_idx_out = 0;
-                int t_out = t;
-
-                int pin_burst = burst(part_idx_in, t_in);
-                double pin_B = B(part_idx_in, t_in);
-                int pin_S = S(part_idx_in, t_in);
-                
-                int pout_burst = burst(part_idx_out, t_out);
-                double pout_B = B(part_idx_out, t_out);
-                int pout_S = S(part_idx_out, t_out);
-
-                lf += log(W[pin_burst][pout_burst]) +
-                    pout_S*log(rate[pout_burst])-rate[pout_burst] - log(tgamma(pout_S+1)) +
-                    -0.5*pow((pout_B-pin_B)/(constants->bm_sigma*sqrt(dt)),2);
-                
-                logW(part_idx) = logWeight(part_idx, t-1);
-                ar_logW(part_idx) = logWeight(part_idx, t-1) + lf;
-                
-            });
-    Kokkos::fence();
-
-    // Copy back to host (can remove this later when random number generation is done on GPU)
-    Kokkos::deep_copy(logW_h, logW);
-    Kokkos::deep_copy(ar_logW_h, ar_logW);
-}
-
-void ParticleArray::move_and_weight(
-    int t,
-    VectorType y, 
-    const param &par, constpar *constants, 
-    VectorType g_noise, std::vector<double> & u_noise,
-    const GCaMP_params & params)
-{
-
-    double dt = 1.0/constants->sampling_frequency;
-
-    double rate[2] = {par.r0*dt,par.r1*dt};
-    double W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
-        {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
-    
-    double z[2] = {par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)),
-                   dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
-
-    Kokkos::parallel_for("evolve_for_maxspikes",
-		Kokkos::RangePolicy<ExecSpace>(0, N*maxspikes*2),
-            KOKKOS_CLASS_LAMBDA(const int idx) {
-                int particle_idx = idx / (maxspikes*2);
-                int spike_idx = idx % (maxspikes*2);
-                int b = floor(spike_idx/maxspikes);
-                int ns    = spike_idx % maxspikes;
-                
-                int a = ancestor(particle_idx, t);
-                int parent_b = burst(a, t-1);
-                double parent_B = B(a, t-1);
-                
-                // Evolve
-                // model->evolve_threadsafe(dt, (int)ns, parent.C, state_out, ct);
-                double state_out[12];
-                double state_in[12];
-                for(int i=0;i<12;i++) state_in[i] = C(a, t-1, i);
-                double ct = fixedStep_LA_kernel(dt, ns, state_in, state_out, params);
-
-                double log_prob_tmp = log(W[parent_b][b]);
-                log_prob_tmp += ns*log(rate[b]) - log(tgamma(ns+1)) - rate[b];
-                log_prob_tmp += -0.5/(par.sigma2+pow(constants->bm_sigma,2))*pow(y(t)-ct-parent_B,2);
-                log_probs(particle_idx, spike_idx) = log_prob_tmp;
-
-            });
-
-    // // Wait for kernel to complete
-    Kokkos::fence();
-
-    // Calclulate w and Z
-    Kokkos::parallel_for("w_and_Z",
-        Kokkos::RangePolicy<ExecSpace>(0, N),
-            KOKKOS_CLASS_LAMBDA(const int part_idx) {
-                                
-                // Get the maximum log weight for the particle
-                double max_log_prob = -INFINITY;
-                for(int i=0;i<2*maxspikes;i++) 
-                    if (log_probs(part_idx,i) > max_log_prob) 
-                        max_log_prob = log_probs(part_idx, i);
-                    
-                // Compute w (probs) and Z
-                double Z_tmp = 0;
-                for(int i=0;i<2*maxspikes;i++) {
-                    probs(part_idx, i) = exp(log_probs(part_idx, i)-max_log_prob);
-                    Z_tmp += probs(part_idx, i);
-                }
-
-                Z_tmp = Z_tmp*exp(max_log_prob);
-                logWeight(part_idx, t) = log(Z_tmp);
-
-            });
-
-    // // Wait for kernel to complete
-    Kokkos::fence();
-
-    // Copy probabilities to host so we can generate the discrete random variables
-    // Will do this on GPU in the future after testing
-    IntVectorType discrete = IntVectorType("discrete", N);
-    IntVectorType::HostMirror discrete_h = Kokkos::create_mirror_view(discrete);
-
-    MatrixType::HostMirror probs_h = Kokkos::create_mirror_view(probs);
-    Kokkos::deep_copy(probs_h, probs);
-    for(int i=0;i<N;i++) {
-        double probs_tmp[2*maxspikes];
-        for(int j=0;j<2*maxspikes;j++) probs_tmp[j] = probs_h(i,j);
-        gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs_tmp);
-        discrete_h(i) = gsl_ran_discrete_from_uniform(rdisc, u_noise[i]);
-        gsl_ran_discrete_free(rdisc);
-    }
-    Kokkos::deep_copy(discrete, discrete_h);
-
-    // Move the particles
-    Kokkos::parallel_for("move_particles",
-        Kokkos::RangePolicy<ExecSpace>(0, N),
-            KOKKOS_CLASS_LAMBDA(const int part_idx) {
-                // move particle if not already set
-                int idx = discrete(part_idx);
-
-                if(part_idx != 0){
-                    burst(part_idx, t) = floor(idx/maxspikes);
-                    S(part_idx, t) = idx%maxspikes;
-
-                    double g_noise_val = g_noise(part_idx);
-                    double parent_B = B(ancestor(part_idx, t), t-1);
-
-                    B(part_idx, t) = B(ancestor(part_idx, t), t-1) + g_noise(part_idx);
-                }
-                
-                // model->evolve_threadsafe(dt, part.S, parent.C, state_out, ct);
-                // part.C     = state_out;
-                double state_out[12];
-                double state_in[12];
-                for(int i=0;i<12;i++) state_in[i] = C(ancestor(part_idx, t), t-1, i);
-                double ct = fixedStep_LA_kernel(dt, S(part_idx, t), state_in, state_out, params);
-                for(int i=0;i<12;i++) C(part_idx, t, i) = state_out[i];
-
-            });
-
-    Kokkos::fence();
-
-}
-
-
 
 // PARTICLE CLASS
 // -----------------------------------------------------------
@@ -1067,6 +610,8 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
 
     double dt=1.0/constants->sampling_frequency;
 
+    omp_set_num_threads(1);
+
     // set model parameters
     model->setParams(par.G_tot,par.gamma,par.DCaT,par.Rf, par.gam_in, par.gam_out);
 
@@ -1144,31 +689,32 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
 
         cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0
-        // #pragma omp parallel for schedule(static)
-        // for(i=0;i<nparticles;i++){
-        //     logW[i] = particleSystem[t-1][i].logWeight;
-        //     ar_logW[i] = logW[i]+logf(particleSystem[t-1][i],particleSystem[t][0],par);
-        // }
-
-        particleArray.calc_ancestor_resampling(t, par, constants);
+        #pragma omp parallel for schedule(static)
         for(i=0;i<nparticles;i++){
-            logW[i] = particleArray.logW_h(i);;
-            ar_logW[i] = particleArray.ar_logW_h(i);
+            logW[i] = particleSystem[t-1][i].logWeight;
+            ar_logW[i] = logW[i]+logf(particleSystem[t-1][i],particleSystem[t][0],par);
         }
 
-        // Check logW and ar_logW are equal on particleArray and particleSystem
+        particleArray.calc_ancestor_resampling(t, par, constants);
         // for(i=0;i<nparticles;i++){
-        //     double lw_cpu = logW[i];
-        //     double lw_gpu = particleArray.logW_h(i);
-        //     double ar_lw_cpu = ar_logW[i];
-        //     double ar_lw_gpu = particleArray.ar_logW_h(i);
-        //     if (fabs(lw_cpu - lw_gpu) > 1e-10 || fabs(ar_lw_cpu - ar_lw_gpu) > 1e-10) {
-        //         cout << "Error: logW or ar_logW mismatch at particle " << i << " at time " << t << endl;
-        //         cout << "CPU: logW = " << lw_cpu << ", ar_logW = " << ar_lw_cpu << endl;
-        //         cout << "GPU: logW = " << lw_gpu << ", ar_logW = " << ar_lw_gpu << endl;
-        //         die = true;
-        //     }
+        //     logW[i] = particleArray.logW_h(i);;
+        //     ar_logW[i] = particleArray.ar_logW_h(i);
         // }
+
+        // Check logW and ar_logW are equal on particleArray and particleSystem
+        for(i=0;i<nparticles;i++){
+            double lw_cpu = logW[i];
+            double lw_gpu = particleArray.logW_h(i);
+            double ar_lw_cpu = ar_logW[i];
+            double ar_lw_gpu = particleArray.ar_logW_h(i);
+            if (fabs(lw_cpu - lw_gpu) > 1e-10 || fabs(ar_lw_cpu - ar_lw_gpu) > 1e-10) {
+                cout << "Error: logW or ar_logW mismatch at particle " << i << " at time " << t << endl;
+                cout << "CPU: logW = " << lw_cpu << ", ar_logW = " << ar_lw_cpu << endl;
+                cout << "GPU: logW = " << lw_gpu << ", ar_logW = " << ar_lw_gpu << endl;
+                die = true;
+                break;
+            }
+        }
 
         utils::w_from_logW(logW,w,nparticles);
         utils::w_from_logW(ar_logW,ar_w,nparticles);
@@ -1210,22 +756,22 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
         Kokkos::deep_copy(u_noise_view, u_noise_h);
     
         // Move and weight particles
-        // #pragma omp parallel for schedule(static)
-        // for(i=0;i<nparticles;i++){
-        //     a = particleSystem[t][i].ancestor;
-        //     if(constants->KNOWN_SPIKES){
-        //         move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
-        //     } else {
-        //         move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
-        //     }
-        // }
+        #pragma omp parallel for schedule(static)
+        for(i=0;i<nparticles;i++){
+            a = particleSystem[t][i].ancestor;
+            if(constants->KNOWN_SPIKES){
+                move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
+            } else {
+                move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
+            }
+        }
 
         // die = !particleArray.check_particle_system(t-1, particleSystem);
         
         // Copy back to host so we can theck things.
         particleArray.move_and_weight(t, data_y_view, par, constants, g_noise_view, u_noise, params);
 
-        // die = !particleArray.check_particle_system(t, particleSystem);
+        die = !particleArray.check_particle_system(t, particleSystem);
         
         gsl_ran_discrete_free(rdisc);
         gsl_ran_discrete_free(ar_rdisc);
@@ -1233,10 +779,10 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     }
 		
     // Copy the partilce system back to the CPU
-    particleArray.copy_to_host();
-    for(t=1;t<TIME;++t)
-        for(i=0;i<nparticles;i++)
-            particleArray.get_particle(t, i, particleSystem[t][i]);
+    // particleArray.copy_to_host();
+    // for(t=1;t<TIME;++t)
+    //     for(i=0;i<nparticles;i++)
+    //         particleArray.get_particle(t, i, particleSystem[t][i]);
 
     // Now use the last particle set to resample the new trajectory
     for(i=0;i<nparticles;i++){
