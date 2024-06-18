@@ -6,6 +6,9 @@
 #include "include/constants.h"
 #include "include/GCaMP_model.h"
 
+// Define the scalar type for the Kokkos views
+typedef double Scalar;
+
 // typedef Kokkos::Serial   ExecSpace;
 // typedef Kokkos::Serial   MemSpace;
 // typedef Kokkos::OpenMP   ExecSpace;
@@ -13,15 +16,15 @@
 typedef Kokkos::Cuda          ExecSpace;
 typedef Kokkos::CudaSpace     MemSpace;
 
-typedef Kokkos::View<double*, MemSpace>   VectorType;
-typedef Kokkos::View<double**, MemSpace>  MatrixType;
+typedef Kokkos::View<Scalar*, MemSpace>   VectorType;
+typedef Kokkos::View<Scalar**, MemSpace>  MatrixType;
 typedef Kokkos::View<int*, MemSpace>   IntVectorType;
 typedef Kokkos::View<int**, MemSpace>  IntMatrixType;
 
 // Our state has a fixed size of 12, lets make a type for it. This will
 // be a 3D array with the first dimension being the number of particles,
 // the second is time, and the third is the state variables
-typedef Kokkos::View<double**[12], MemSpace>   StateMatrixType;
+typedef Kokkos::View<Scalar**[12], MemSpace>   StateMatrixType;
 
 // Lets make a subview for a single particle
 typedef Kokkos::Subview<StateMatrixType, int, int, decltype(Kokkos::ALL)> StateVectorType;
@@ -64,7 +67,7 @@ class ParticleArray
 
         void calc_ancestor_resampling(int t, const param &par, constpar *constants);
 
-        double logf(int part_idx_in, int t_in, int part_idx_out, int t_out, const param &par, constpar *constants);
+        Scalar logf(int part_idx_in, int t_in, int part_idx_out, int t_out, const param &par, constpar *constants);
 
         bool check_particle_system(int t, std::vector<Particle*> & particleSystem);
 

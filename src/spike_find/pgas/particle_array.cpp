@@ -8,37 +8,37 @@
 using namespace std;
 
 KOKKOS_FUNCTION
-double fixedStep_LA_kernel(
-    double deltat, int ns,
+Scalar fixedStep_LA_kernel(
+    Scalar deltat, int ns,
     const StateVectorType state_in, 
     StateVectorType state_out,
     const GCaMP_params & p,
     bool save_state)
 {
 
-    double G[9];
+    Scalar G[9];
 
     for(int i=0;i<9;i++) G[i] = state_in(i);
 
-    double BCa = state_in(9);
-    double dBCa_dt;
+    Scalar BCa = state_in(9);
+    Scalar dBCa_dt;
 
-    double Ca  = state_in(10);
-    double Ca_in = state_in(11);
-    double dCa_dt, dCa_in_dt;
+    Scalar Ca  = state_in(10);
+    Scalar Ca_in = state_in(11);
+    Scalar dCa_dt, dCa_in_dt;
     
-    double Gflux, Cflux;
-    double finedt=100e-6;
-    double dt;
+    Scalar Gflux, Cflux;
+    Scalar finedt=100e-6;
+    Scalar dt;
 
-    double calcium_input;
+    Scalar calcium_input;
 
-    double konN,   koffN;
-    double konC,   koffC;
-    double konPN,  koffPN;
-    double konPN2, koffPN2;
-    double konPC,  koffPC;
-    double konPC2,  koffPC2;
+    Scalar konN,   koffN;
+    Scalar konC,   koffC;
+    Scalar konPN,  koffPN;
+    Scalar konPN2, koffPN2;
+    Scalar konPC,  koffPC;
+    Scalar konPC2,  koffPC2;
 
     // Load from the params struct
     koffN = p.koffN;
@@ -53,12 +53,12 @@ double fixedStep_LA_kernel(
     koffPC2 = p.koffPC2;
     
     // Calculate konN and konC
-    double logCa = log(Ca);
+    Scalar logCa = log(Ca);
     konN = p.Gparams[0]*exp(p.Gparams[2]*logCa);
     konC = p.Gparams[3]*exp(p.Gparams[5]*logCa);
   
     // Intiliaze the Gmatrix
-	double Gmatrix[9][9] = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
+	Scalar Gmatrix[9][9] = {{-(konN+konC),koffN,koffPN,0,koffC,koffPC,0,0,0},
         {konN,-(koffN+konPN+konC),0,0,0,0,koffPC2,koffC,0},
         {0,konPN,-(konC+koffPN),koffC,0,0,0,0,koffPC2},
         {0,0,konC,-(koffC+konPC2+koffPN2 ),0,0,0,konPN2,0},
@@ -68,16 +68,16 @@ double fixedStep_LA_kernel(
         {0,konC,0,0,konN,0,0,-(koffC+koffN+konPC2+konPN2),0},
         {0,0,0,konPC2,0,0,konPN2,0,-(koffPN2+koffPC2)}};
 
-    double dG_dt[9];
-    double old_t = 0;
-    double t = finedt;
+    Scalar dG_dt[9];
+    Scalar old_t = 0;
+    Scalar t = finedt;
     int tstep_i = 1;
     int n_steps = floor(deltat/finedt);
     while(t <= (n_steps*finedt)) {
 
         calcium_input = (tstep_i==1) ? ns*p.DCaT/finedt : 0;
 
-        double logCa = log(Ca);
+        Scalar logCa = log(Ca);
 	    konN = p.Gparams[0]*exp(p.Gparams[2]*logCa);
         konC = p.Gparams[3]*exp(p.Gparams[5]*logCa);
 
@@ -103,12 +103,12 @@ double fixedStep_LA_kernel(
 
         // Gflux = flux_konN_konC(konN, konC, G);
         // Calculate fluxes per binding site
-        double N = -(konN*(G[0] + G[4] + G[5])) +
+        Scalar N = -(konN*(G[0] + G[4] + G[5])) +
                 koffN*(G[1] + G[6]+ G[7])  + 
                 koffPN*G[2]                + 
                 koffPN2*(G[3] + G[8]);
 
-        double C = -(konC *(G[0] + G[1] + G[2])) +
+        Scalar C = -(konC *(G[0] + G[1] + G[2])) +
                 koffC*(G[4] + G[3] + G[7])  + 
                 koffPC*(G[5])+ 
                 koffPC2*(G[6]+G[8]);
@@ -145,10 +145,10 @@ double fixedStep_LA_kernel(
     }
 
     int brightStates[5] = {2, 3, 5, 6, 8};
-    double brightStatesSum = 0.0;
+    Scalar brightStatesSum = 0.0;
     for(unsigned int i=0;i<5;i++) brightStatesSum += G[brightStates[i]];
 
-    double DFF_out = (brightStatesSum - p.Ginit)/(p.Ginit-p.G0+(p.Gsat-p.G0)/(p.Rf-1));
+    Scalar DFF_out = (brightStatesSum - p.Ginit)/(p.Ginit-p.G0+(p.Gsat-p.G0)/(p.Rf-1));
 
     return DFF_out;
 }
@@ -282,23 +282,23 @@ bool ParticleArray::check_particle_system(int t, std::vector<Particle*> & partic
 }
 
 KOKKOS_FUNCTION
-double ParticleArray::logf(
+Scalar ParticleArray::logf(
     int part_idx_in, int t_in, 
     int part_idx_out, int t_out, 
     const param &par, constpar *constants) 
 {
-    double lf = 0;
-    double dt = 1.0/constants->sampling_frequency;
-    double W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
+    Scalar lf = 0;
+    Scalar dt = 1.0/constants->sampling_frequency;
+    Scalar W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
         {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
-    double rate[2] = {par.r0*dt,par.r1*dt};
+    Scalar rate[2] = {par.r0*dt,par.r1*dt};
 
     int pin_burst = burst(part_idx_in, t_in);
-    double pin_B = B(part_idx_in, t_in);
+    Scalar pin_B = B(part_idx_in, t_in);
     int pin_S = S(part_idx_in, t_in);
     
     int pout_burst = burst(part_idx_out, t_out);
-    double pout_B = B(part_idx_out, t_out);
+    Scalar pout_B = B(part_idx_out, t_out);
     int pout_S = S(part_idx_out, t_out);
 
     lf += log(W[pin_burst][pout_burst]) +
@@ -311,24 +311,24 @@ double ParticleArray::logf(
 void ParticleArray::calc_ancestor_resampling(
     int t, const param &par, constpar *constants)
 {
-    double sampling_frequency = constants->sampling_frequency;
-    double wbb[2];
+    Scalar sampling_frequency = constants->sampling_frequency;
+    Scalar wbb[2];
     wbb[0] = par.wbb[0];
     wbb[1] = par.wbb[1];
-    double r0 = par.r0;
-    double r1 = par.r1;
-    double bm_sigma = constants->bm_sigma;
+    Scalar r0 = par.r0;
+    Scalar r1 = par.r1;
+    Scalar bm_sigma = constants->bm_sigma;
 
     // Retrieve weights and calculate ancestor resampling weights
     Kokkos::parallel_for("calc_ancestor_weights",
         Kokkos::RangePolicy<ExecSpace>(0, N),
             KOKKOS_CLASS_LAMBDA(const int part_idx) {
                 
-                double lf = 0;
-                double dt = 1.0/sampling_frequency;
-                double W[2][2] = {{1-wbb[0]*dt, wbb[0]*dt},
+                Scalar lf = 0;
+                Scalar dt = 1.0/sampling_frequency;
+                Scalar W[2][2] = {{1-wbb[0]*dt, wbb[0]*dt},
                     {wbb[1]*dt, 1-wbb[1]*dt}};
-                double rate[2] = {r0*dt,r1*dt};
+                Scalar rate[2] = {r0*dt,r1*dt};
 
                 int part_idx_in = part_idx;
                 int t_in = t-1;
@@ -336,11 +336,11 @@ void ParticleArray::calc_ancestor_resampling(
                 int t_out = t;
 
                 int pin_burst = burst(part_idx_in, t_in);
-                double pin_B = B(part_idx_in, t_in);
+                Scalar pin_B = B(part_idx_in, t_in);
                 int pin_S = S(part_idx_in, t_in);
                 
                 int pout_burst = burst(part_idx_out, t_out);
-                double pout_B = B(part_idx_out, t_out);
+                Scalar pout_B = B(part_idx_out, t_out);
                 int pout_S = S(part_idx_out, t_out);
 
                 lf += log(W[pin_burst][pout_burst]) +
@@ -367,16 +367,16 @@ void ParticleArray::move_and_weight(
     const GCaMP_params & params)
 {
 
-    double dt = 1.0/constants->sampling_frequency;
+    Scalar dt = 1.0/constants->sampling_frequency;
 
-    double rate[2] = {par.r0*dt,par.r1*dt};
-    double W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
+    Scalar rate[2] = {par.r0*dt,par.r1*dt};
+    Scalar W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
         {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
     
-    double z[2] = {par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)),
+    Scalar z[2] = {par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)),
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
 
-    double bm_sigma = constants->bm_sigma;
+    Scalar bm_sigma = constants->bm_sigma;
 
     // We don't actually need this value, but we need to pass it to the kernel
     // save_state=false will make sure it isn't written to, which would cause 
@@ -395,14 +395,14 @@ void ParticleArray::move_and_weight(
              
                 int a = ancestor(particle_idx, t);
                 int parent_b = burst(a, t-1);
-                double parent_B = B(a, t-1);
+                Scalar parent_B = B(a, t-1);
                 
                 // Evolve
                 // model->evolve_threadsafe(dt, (int)ns, parent.C, state_out, ct);
                 StateVectorType state_in = Kokkos::subview(C, a, t-1, Kokkos::ALL);
-                double ct = fixedStep_LA_kernel(dt, ns, state_in, state_out, params, false);
+                Scalar ct = fixedStep_LA_kernel(dt, ns, state_in, state_out, params, false);
 
-                double log_prob_tmp = log(W[parent_b][b]);
+                Scalar log_prob_tmp = log(W[parent_b][b]);
                 log_prob_tmp += ns*log(rate[b]) - log(tgamma(ns+1)) - rate[b];
                 log_prob_tmp += -0.5/(par.sigma2+pow(bm_sigma,2))*pow(y(t)-ct-parent_B,2);
                 log_probs(particle_idx, spike_idx) = log_prob_tmp;
@@ -418,13 +418,13 @@ void ParticleArray::move_and_weight(
             KOKKOS_CLASS_LAMBDA(const int part_idx) {
                                 
                 // Get the maximum log weight for the particle
-                double max_log_prob = -INFINITY;
+                Scalar max_log_prob = -INFINITY;
                 for(int i=0;i<2*maxspikes;i++) 
                     if (log_probs(part_idx,i) > max_log_prob) 
                         max_log_prob = log_probs(part_idx, i);
                     
                 // Compute w (probs) and Z
-                double Z_tmp = 0;
+                Scalar Z_tmp = 0;
                 for(int i=0;i<2*maxspikes;i++) {
                     probs(part_idx, i) = exp(log_probs(part_idx, i)-max_log_prob);
                     Z_tmp += probs(part_idx, i);
@@ -465,8 +465,8 @@ void ParticleArray::move_and_weight(
                     burst(part_idx, t) = floor(idx/maxspikes);
                     S(part_idx, t) = idx%maxspikes;
 
-                    double g_noise_val = g_noise(part_idx);
-                    double parent_B = B(ancestor(part_idx, t), t-1);
+                    Scalar g_noise_val = g_noise(part_idx);
+                    Scalar parent_B = B(ancestor(part_idx, t), t-1);
 
                     B(part_idx, t) = B(ancestor(part_idx, t), t-1) + g_noise(part_idx);
                 }
@@ -475,7 +475,7 @@ void ParticleArray::move_and_weight(
                 // part.C     = state_out;
                 StateVectorType state_in = Kokkos::subview(C, ancestor(part_idx, t), t-1, Kokkos::ALL);
                 StateVectorType state_out = Kokkos::subview(C, part_idx, t, Kokkos::ALL);
-                double ct = fixedStep_LA_kernel(dt, S(part_idx, t), state_in, state_out, params, true);
+                Scalar ct = fixedStep_LA_kernel(dt, S(part_idx, t), state_in, state_out, params, true);
 
             });
 
