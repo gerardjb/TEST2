@@ -1,5 +1,5 @@
 #include"include/particle.h"
-#include"particle_array.h"
+#include"include/particle_array.h"
 #include"include/utils.h"
 #include<gsl/gsl_sf_gamma.h>
 #include<gsl/gsl_math.h>
@@ -9,35 +9,6 @@
 #include"include/GCaMP_model.h"
 #include<iomanip>
 
-// A helper function that generates a discrete random variable from a uniform sample.
-// This function lets us pre-generate noise samples for the move and weight steps
-// Ahead of time to aid in reproducibility.
-#include <gsl/gsl_randist.h>
-size_t gsl_ran_discrete_from_uniform(const gsl_ran_discrete_t *g, double u)
-{
-
-    #define KNUTH_CONVENTION 1
-
-    size_t c=0;
-    double f;
-#if KNUTH_CONVENTION
-    c = (u*(g->K));
-#else
-    u *= g->K;
-    c = u;
-    u -= c;
-#endif
-    f = (g->F)[c];
-    /* fprintf(stderr,"c,f,u: %d %.4f %f\n",c,f,u); */
-    if (f == 1.0) return c;
-
-    if (u < f) {
-        return c;
-    }
-    else {
-        return (g->A)[c];
-    }
-}
 
 using namespace std;
 
@@ -311,7 +282,7 @@ void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, 
     if(!set){
         // move particle if not already set
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2, probs);
-        int idx = gsl_ran_discrete_from_uniform(rdisc, u_noise);
+        int idx = utils::gsl_ran_discrete_from_uniform(rdisc, u_noise);
 
         part.burst = idx;
         part.B     = z[0]*parent.B+z[1]*(y-parent.C(0)) + g_noise;
@@ -362,7 +333,7 @@ void SMC::move_and_weight(Particle &part, const Particle& parent, double y, cons
     if(!set){
         // move particle if not already set
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs);
-        int idx = gsl_ran_discrete_from_uniform(rdisc, u_noise);
+        int idx = utils::gsl_ran_discrete_from_uniform(rdisc, u_noise);
         
         part.burst = floor(idx/maxspikes);
         part.S     = idx%maxspikes;
@@ -696,10 +667,6 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
         }
 
         particleArray.calc_ancestor_resampling(t, par, constants);
-        // for(i=0;i<nparticles;i++){
-        //     logW[i] = particleArray.logW_h(i);;
-        //     ar_logW[i] = particleArray.ar_logW_h(i);
-        // }
 
         // Check logW and ar_logW are equal on particleArray and particleSystem
         for(i=0;i<nparticles;i++){
@@ -714,6 +681,11 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
                 die = true;
                 break;
             }
+        }
+
+        for(i=0;i<nparticles;i++){
+            logW[i] = particleArray.logW_h(i);;
+            ar_logW[i] = particleArray.ar_logW_h(i);
         }
 
         utils::w_from_logW(logW,w,nparticles);
@@ -779,10 +751,10 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     }
 		
     // Copy the partilce system back to the CPU
-    // particleArray.copy_to_host();
-    // for(t=1;t<TIME;++t)
-    //     for(i=0;i<nparticles;i++)
-    //         particleArray.get_particle(t, i, particleSystem[t][i]);
+    particleArray.copy_to_host();
+    for(t=1;t<TIME;++t)
+        for(i=0;i<nparticles;i++)
+            particleArray.get_particle(t, i, particleSystem[t][i]);
 
     // Now use the last particle set to resample the new trajectory
     for(i=0;i<nparticles;i++){

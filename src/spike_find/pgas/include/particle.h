@@ -10,7 +10,7 @@
 #include <gsl/gsl_randist.h>
 #include<string>
 #include"include/GCaMP_model.h"
-#include"particle_array.h"
+#include"include/particle_array.h"
 
 #include <Kokkos_Core.hpp>
 

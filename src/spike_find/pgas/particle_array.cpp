@@ -1,21 +1,30 @@
-#include "particle_array.h"
+#include "include/particle_array.h"
+#include "include/constants.h"
+#include "include/param.h"
+#include "include/particle.h"
+#include "include/GCaMP_model.h"
+#include "include/utils.h"
 
+using namespace std;
+
+KOKKOS_FUNCTION
 double fixedStep_LA_kernel(
     double deltat, int ns,
-    const double * state_in, 
-    double * state_out,
-    const GCaMP_params & p)
+    const StateVectorType state_in, 
+    StateVectorType state_out,
+    const GCaMP_params & p,
+    bool save_state)
 {
 
     double G[9];
 
-    for(int i=0;i<9;i++) G[i] = state_in[i];
+    for(int i=0;i<9;i++) G[i] = state_in(i);
 
-    double BCa = state_in[9];
+    double BCa = state_in(9);
     double dBCa_dt;
 
-    double Ca  = state_in[10];
-    double Ca_in = state_in[11];
+    double Ca  = state_in(10);
+    double Ca_in = state_in(11);
     double dCa_dt, dCa_in_dt;
     
     double Gflux, Cflux;
@@ -128,10 +137,12 @@ double fixedStep_LA_kernel(
         tstep_i++;
     }
 
-    for(unsigned int i=0;i<9;i++) state_out[i] = G[i];
-    state_out[9]  = BCa;
-    state_out[10] = Ca;
-    state_out[11] = Ca_in;
+    if (save_state) {
+        for(unsigned int i=0;i<9;i++) state_out(i) = G[i];
+        state_out(9)  = BCa;
+        state_out(10) = Ca;
+        state_out(11) = Ca_in;
+    }
 
     int brightStates[5] = {2, 3, 5, 6, 8};
     double brightStatesSum = 0.0;
@@ -148,7 +159,7 @@ ParticleArray::ParticleArray(int N, int T) : N(N), T(T)
 
     B = MatrixType("B",N,T);
     burst = IntMatrixType("burst",N,T);
-    C = Kokkos::View<double**[12], MemSpace>("C",N,T);
+    C = StateMatrixType("C",N,T);
     S = IntMatrixType("S",N,T);
     logWeight = MatrixType("logWeight",N,T);
     ancestor = IntMatrixType("ancestor",N,T);
@@ -177,6 +188,7 @@ ParticleArray::ParticleArray(int N, int T) : N(N), T(T)
 
     ar_logW = VectorType("ar_logW",N);
     ar_logW_h = Kokkos::create_mirror_view(ar_logW);
+
 }
 
 
@@ -269,6 +281,7 @@ bool ParticleArray::check_particle_system(int t, std::vector<Particle*> & partic
     return !die;
 }
 
+KOKKOS_FUNCTION
 double ParticleArray::logf(
     int part_idx_in, int t_in, 
     int part_idx_out, int t_out, 
@@ -330,13 +343,6 @@ void ParticleArray::calc_ancestor_resampling(
                 double pout_B = B(part_idx_out, t_out);
                 int pout_S = S(part_idx_out, t_out);
 
-                if (part_idx == 0) {
-                    // Kokkos::printf("logWeight=%f\n", logWeight(part_idx, t-1));
-                    // Kokkos::printf("log(W[pin_burst][pout_burst])=%f\n", log(W[pin_burst][pout_burst]));
-                    // Kokkos::printf("pin_burst=%d, pin_B=%f pin_S=%d\n", pin_burst, pin_B, pin_S);
-                    // // Kokkos::printf("pout_burst=%d, pout_B=%f pout_S=%d\n", pout_burst, pout_B, pout_S);
-                }
-
                 lf += log(W[pin_burst][pout_burst]) +
                     pout_S*log(rate[pout_burst])-rate[pout_burst] - log(tgamma(pout_S+1)) +
                     -0.5*pow((pout_B-pin_B)/(bm_sigma*sqrt(dt)),2);
@@ -350,6 +356,7 @@ void ParticleArray::calc_ancestor_resampling(
     // Copy back to host (can remove this later when random number generation is done on GPU)
     Kokkos::deep_copy(logW_h, logW);
     Kokkos::deep_copy(ar_logW_h, ar_logW);
+
 }
 
 void ParticleArray::move_and_weight(
@@ -369,6 +376,15 @@ void ParticleArray::move_and_weight(
     double z[2] = {par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)),
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
 
+    double bm_sigma = constants->bm_sigma;
+
+    // We don't actually need this value, but we need to pass it to the kernel
+    // save_state=false will make sure it isn't written to, which would cause 
+    // problems because it is the same address for all particles.
+    StateMatrixType state_out_tmp("state_out_tmp", 1, 1, 12);
+    // StateVectorType state_out("state_out", 12);
+    StateVectorType state_out = Kokkos::subview(state_out_tmp, 0, 0, Kokkos::ALL);
+
     Kokkos::parallel_for("evolve_for_maxspikes",
 		Kokkos::RangePolicy<ExecSpace>(0, N*maxspikes*2),
             KOKKOS_CLASS_LAMBDA(const int idx) {
@@ -383,14 +399,12 @@ void ParticleArray::move_and_weight(
                 
                 // Evolve
                 // model->evolve_threadsafe(dt, (int)ns, parent.C, state_out, ct);
-                double state_out[12];
-                double state_in[12];
-                for(int i=0;i<12;i++) state_in[i] = C(a, t-1, i);
-                double ct = fixedStep_LA_kernel(dt, ns, state_in, state_out, params);
+                StateVectorType state_in = Kokkos::subview(C, a, t-1, Kokkos::ALL);
+                double ct = fixedStep_LA_kernel(dt, ns, state_in, state_out, params, false);
 
                 double log_prob_tmp = log(W[parent_b][b]);
                 log_prob_tmp += ns*log(rate[b]) - log(tgamma(ns+1)) - rate[b];
-                log_prob_tmp += -0.5/(par.sigma2+pow(constants->bm_sigma,2))*pow(y(t)-ct-parent_B,2);
+                log_prob_tmp += -0.5/(par.sigma2+pow(bm_sigma,2))*pow(y(t)-ct-parent_B,2);
                 log_probs(particle_idx, spike_idx) = log_prob_tmp;
 
             });
@@ -435,7 +449,7 @@ void ParticleArray::move_and_weight(
         double probs_tmp[2*maxspikes];
         for(int j=0;j<2*maxspikes;j++) probs_tmp[j] = probs_h(i,j);
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs_tmp);
-        discrete_h(i) = gsl_ran_discrete_from_uniform(rdisc, u_noise[i]);
+        discrete_h(i) = utils::gsl_ran_discrete_from_uniform(rdisc, u_noise[i]);
         gsl_ran_discrete_free(rdisc);
     }
     Kokkos::deep_copy(discrete, discrete_h);
@@ -459,11 +473,9 @@ void ParticleArray::move_and_weight(
                 
                 // model->evolve_threadsafe(dt, part.S, parent.C, state_out, ct);
                 // part.C     = state_out;
-                double state_out[12];
-                double state_in[12];
-                for(int i=0;i<12;i++) state_in[i] = C(ancestor(part_idx, t), t-1, i);
-                double ct = fixedStep_LA_kernel(dt, S(part_idx, t), state_in, state_out, params);
-                for(int i=0;i<12;i++) C(part_idx, t, i) = state_out[i];
+                StateVectorType state_in = Kokkos::subview(C, ancestor(part_idx, t), t-1, Kokkos::ALL);
+                StateVectorType state_out = Kokkos::subview(C, part_idx, t, Kokkos::ALL);
+                double ct = fixedStep_LA_kernel(dt, S(part_idx, t), state_in, state_out, params, true);
 
             });
 

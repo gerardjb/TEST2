@@ -15,6 +15,8 @@ find_package(Kokkos REQUIRED)
 
 file(GLOB PGAS_SRCS CONFIGURE_DEPENDS src/spike_find/pgas/*.cpp)
 
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -lineinfo")
+
 pybind11_add_module(pgas_bound MODULE src/spike_find/pgas/bindings.cpp ${PGAS_SRCS} NO_EXTRAS)
 
 target_include_directories(pgas_bound PRIVATE src/spike_find/pgas)

@@ -1,6 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include<armadillo>
+#include <gsl/gsl_randist.h>
 
 using namespace std;
 
@@ -95,6 +96,8 @@ namespace utils {
 
         return idx;
     }
+
+    size_t gsl_ran_discrete_from_uniform(const gsl_ran_discrete_t *g, double u);
 }
 
 namespace stats{

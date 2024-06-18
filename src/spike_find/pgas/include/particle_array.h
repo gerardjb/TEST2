@@ -1,8 +1,10 @@
 #ifndef PARTICLE_ARRAY_H
 #define PARTICLE_ARRAY_H
 
-#include "particle.h"
 #include <Kokkos_Core.hpp>
+#include "include/param.h"
+#include "include/constants.h"
+#include "include/GCaMP_model.h"
 
 // typedef Kokkos::Serial   ExecSpace;
 // typedef Kokkos::Serial   MemSpace;
@@ -16,6 +18,16 @@ typedef Kokkos::View<double**, MemSpace>  MatrixType;
 typedef Kokkos::View<int*, MemSpace>   IntVectorType;
 typedef Kokkos::View<int**, MemSpace>  IntMatrixType;
 
+// Our state has a fixed size of 12, lets make a type for it. This will
+// be a 3D array with the first dimension being the number of particles,
+// the second is time, and the third is the state variables
+typedef Kokkos::View<double**[12], MemSpace>   StateMatrixType;
+
+// Lets make a subview for a single particle
+typedef Kokkos::Subview<StateMatrixType, int, int, decltype(Kokkos::ALL)> StateVectorType;
+
+class Particle;
+
 // A class to store N particles over time. First dimension of all arrays is time, second is particle index
 class ParticleArray
 {
@@ -24,7 +36,7 @@ class ParticleArray
 
         MatrixType B;
         IntMatrixType burst;
-        Kokkos::View<double**[12], MemSpace> C;
+        StateMatrixType C;
         IntMatrixType S;
         MatrixType logWeight;
         IntMatrixType ancestor;
@@ -33,7 +45,7 @@ class ParticleArray
         // Host mirrors
         MatrixType::HostMirror B_h;
         IntMatrixType::HostMirror burst_h;
-        Kokkos::View<double**[12], MemSpace>::HostMirror C_h;
+        StateMatrixType::HostMirror C_h;
         IntMatrixType::HostMirror S_h;
         MatrixType::HostMirror logWeight_h;
         IntMatrixType::HostMirror ancestor_h;
@@ -78,6 +90,8 @@ class ParticleArray
 
         VectorType ar_logW;
         VectorType::HostMirror ar_logW_h;
+
+        StateMatrixType C_tmp;
 
 };
 
