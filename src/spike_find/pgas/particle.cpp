@@ -660,28 +660,28 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
 
         cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0
-        #pragma omp parallel for schedule(static)
-        for(i=0;i<nparticles;i++){
-            logW[i] = particleSystem[t-1][i].logWeight;
-            ar_logW[i] = logW[i]+logf(particleSystem[t-1][i],particleSystem[t][0],par);
-        }
+        // #pragma omp parallel for schedule(static)
+        // for(i=0;i<nparticles;i++){
+        //     logW[i] = particleSystem[t-1][i].logWeight;
+        //     ar_logW[i] = logW[i]+logf(particleSystem[t-1][i],particleSystem[t][0],par);
+        // }
 
         particleArray.calc_ancestor_resampling(t, par, constants);
 
         // Check logW and ar_logW are equal on particleArray and particleSystem
-        for(i=0;i<nparticles;i++){
-            double lw_cpu = logW[i];
-            double lw_gpu = particleArray.logW_h(i);
-            double ar_lw_cpu = ar_logW[i];
-            double ar_lw_gpu = particleArray.ar_logW_h(i);
-            if (fabs(lw_cpu - lw_gpu) > 1e-10 || fabs(ar_lw_cpu - ar_lw_gpu) > 1e-10) {
-                cout << "Error: logW or ar_logW mismatch at particle " << i << " at time " << t << endl;
-                cout << "CPU: logW = " << lw_cpu << ", ar_logW = " << ar_lw_cpu << endl;
-                cout << "GPU: logW = " << lw_gpu << ", ar_logW = " << ar_lw_gpu << endl;
-                die = true;
-                break;
-            }
-        }
+        // for(i=0;i<nparticles;i++){
+        //     double lw_cpu = logW[i];
+        //     double lw_gpu = particleArray.logW_h(i);
+        //     double ar_lw_cpu = ar_logW[i];
+        //     double ar_lw_gpu = particleArray.ar_logW_h(i);
+        //     if (fabs(lw_cpu - lw_gpu) > 1e-10 || fabs(ar_lw_cpu - ar_lw_gpu) > 1e-10) {
+        //         cout << "Error: logW or ar_logW mismatch at particle " << i << " at time " << t << endl;
+        //         cout << "CPU: logW = " << lw_cpu << ", ar_logW = " << ar_lw_cpu << endl;
+        //         cout << "GPU: logW = " << lw_gpu << ", ar_logW = " << ar_lw_gpu << endl;
+        //         die = true;
+        //         break;
+        //     }
+        // }
 
         for(i=0;i<nparticles;i++){
             logW[i] = particleArray.logW_h(i);;
@@ -728,22 +728,22 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
         Kokkos::deep_copy(u_noise_view, u_noise_h);
     
         // Move and weight particles
-        #pragma omp parallel for schedule(static)
-        for(i=0;i<nparticles;i++){
-            a = particleSystem[t][i].ancestor;
-            if(constants->KNOWN_SPIKES){
-                move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
-            } else {
-                move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
-            }
-        }
+        // #pragma omp parallel for schedule(static)
+        // for(i=0;i<nparticles;i++){
+        //     a = particleSystem[t][i].ancestor;
+        //     if(constants->KNOWN_SPIKES){
+        //         move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
+        //     } else {
+        //         move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
+        //     }
+        // }
 
         // die = !particleArray.check_particle_system(t-1, particleSystem);
         
         // Copy back to host so we can theck things.
         particleArray.move_and_weight(t, data_y_view, par, constants, g_noise_view, u_noise, params);
 
-        die = !particleArray.check_particle_system(t, particleSystem);
+        // die = !particleArray.check_particle_system(t, particleSystem);
         
         gsl_ran_discrete_free(rdisc);
         gsl_ran_discrete_free(ar_rdisc);

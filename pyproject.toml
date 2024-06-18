@@ -44,16 +44,16 @@ dependencies = [
  cmake.args = [
   '-DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake', 
   
-  # '-DCMAKE_BUILD_TYPE=Release',
+  '-DCMAKE_BUILD_TYPE=Release',
   # '-DCMAKE_BUILD_TYPE=RelWithDebInfo',
-  '-DCMAKE_BUILD_TYPE=Debug',
+  # '-DCMAKE_BUILD_TYPE=Debug',
  
   # Kokkos stuff,
 
   # Debug stuff (TURN OFF IN PRODUCTION)
-  '-DKokkos_ENABLE_DEBUG=ON',
-  '-DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=ON',
-  '-DKokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK=ON',
+  # '-DKokkos_ENABLE_DEBUG=ON',
+  # '-DKokkos_ENABLE_DEBUG_BOUNDS_CHECK=ON',
+  # '-DKokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK=ON',
 
   '-DKokkos_ENABLE_SERIAL=ON',
   '-DKokkos_ENABLE_OPENMP=ON',
