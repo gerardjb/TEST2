@@ -581,8 +581,6 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
 
     double dt=1.0/constants->sampling_frequency;
 
-    omp_set_num_threads(1);
-
     // set model parameters
     model->setParams(par.G_tot,par.gamma,par.DCaT,par.Rf, par.gam_in, par.gam_out);
 
