@@ -427,7 +427,6 @@ double GCaMP::fixedStep_LA_threadsafe(double deltat, int ns, const arma::vec& st
     double dt;
 
     arma::vec timesteps = arma::regspace(0,finedt,deltat);
-    int nsteps = timesteps.n_elem;
     double calcium_input;
 
     // Intiliaze the Gmatrix
