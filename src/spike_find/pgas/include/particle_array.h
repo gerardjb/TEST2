@@ -2,40 +2,57 @@
 #define PARTICLE_ARRAY_H
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
 #include "include/param.h"
 #include "include/constants.h"
 #include "include/GCaMP_model.h"
 
 // Define the scalar type for the Kokkos views
-typedef double Scalar;
+using Scalar = double;
 
-// typedef Kokkos::Serial   ExecSpace;
-// typedef Kokkos::Serial   MemSpace;
-// typedef Kokkos::OpenMP   ExecSpace;
-// typedef Kokkos::OpenMP        MemSpace;
-typedef Kokkos::Cuda          ExecSpace;
-typedef Kokkos::CudaSpace     MemSpace;
+#define USE_GPU
 
-typedef Kokkos::View<Scalar*, MemSpace>   VectorType;
-typedef Kokkos::View<Scalar**, MemSpace>  MatrixType;
-typedef Kokkos::View<int*, MemSpace>   IntVectorType;
-typedef Kokkos::View<int**, MemSpace>  IntMatrixType;
+#ifndef USE_GPU
+// using ExecSpace = Kokkos::Serial;
+// using MemSpace = Kokkos::HostSpace;
+    using ExecSpace = Kokkos::OpenMP;
+    using MemSpace = Kokkos::HostSpace;
+#else
+    using ExecSpace = Kokkos::Cuda;
+    using MemSpace = Kokkos::CudaSpace;
+#endif
+
+using DeviceType = Kokkos::Device<ExecSpace, MemSpace>;
+
+// Define the view types
+using VectorType = Kokkos::View<Scalar*, MemSpace>;
+using MatrixType = Kokkos::View<Scalar**, MemSpace>;
+using IntVectorType = Kokkos::View<int*, MemSpace>;
+using IntMatrixType = Kokkos::View<int**, MemSpace>;
+
+// Define a subview row type
+using RowVectorType = Kokkos::Subview<MatrixType, int, decltype(Kokkos::ALL)>;
+
+// Define the random number generator type
+using RandPoolType = Kokkos::Random_XorShift64_Pool<DeviceType>;
+using RandGenType = RandPoolType::generator_type;
 
 // Our state has a fixed size of 12, lets make a type for it. This will
 // be a 3D array with the first dimension being the number of particles,
 // the second is time, and the third is the state variables
-typedef Kokkos::View<Scalar**[12], MemSpace>   StateMatrixType;
+using StateMatrixType = Kokkos::View<Scalar**[12], MemSpace>;
 
 // Lets make a subview for a single particle
-typedef Kokkos::Subview<StateMatrixType, int, int, decltype(Kokkos::ALL)> StateVectorType;
+using StateVectorType = Kokkos::Subview<StateMatrixType, int, int, decltype(Kokkos::ALL)>;
 
 class Particle;
+
+constexpr int maxspikes = 2;
 
 // A class to store N particles over time. First dimension of all arrays is time, second is particle index
 class ParticleArray
 {
     public:
-        const int maxspikes = 2;
 
         MatrixType B;
         IntMatrixType burst;
@@ -63,7 +80,7 @@ class ParticleArray
         void copy_to_host();
 
         void move_and_weight(int t, VectorType y, const param &par, constpar *constants, 
-                             VectorType g_noise, std::vector<double> & u_noise, const GCaMP_params & params); 
+                             VectorType g_noise, std::vector<double> & u_noise, VectorType u_noise_view, const GCaMP_params & params); 
 
         void calc_ancestor_resampling(int t, const param &par, constpar *constants);
 
@@ -76,6 +93,8 @@ class ParticleArray
 
         // Number of time points
         int T;
+
+        RandPoolType random_pool;
 
     // private:
 
@@ -94,7 +113,8 @@ class ParticleArray
         VectorType ar_logW;
         VectorType::HostMirror ar_logW_h;
 
-        StateMatrixType C_tmp;
+        IntVectorType new_ancestors;
+        IntVectorType::HostMirror new_ancestors_h;
 
 };
 

@@ -5,7 +5,52 @@
 #include "include/GCaMP_model.h"
 #include "include/utils.h"
 
+#include <Kokkos_Random.hpp>
+
 using namespace std;
+
+template<unsigned int N>
+KOKKOS_FUNCTION
+void w_from_logW(const RowVectorType src, RowVectorType out){
+
+    // Get the maximum log weight for the particle
+    Scalar max_log_prob = -INFINITY;
+    for(int i=0;i<N;i++) 
+        if (src(i) > max_log_prob) 
+            max_log_prob = src(i);
+                    
+    // Compute w (probs)
+    for(int i=0;i<N;i++)
+        out(i) = exp(src(i)-max_log_prob);
+        
+}
+
+// A helper function that generates a discrete random variable from a uniform sample.
+// This implmenents the naive linear scan method. See:
+// https://publikationen.bibliothek.kit.edu/1000133378/115756109#:~:text=With%20weighted%20random%20sampling%2C%20each,1)%20is%20the%20alias%20table.
+// for a good description of this method and others to do this more efficiently.
+// I think for small N where we are only doing this once per particle, this is fine. 
+template<unsigned int N>
+KOKKOS_FUNCTION
+unsigned int discrete_from_uniform(const Scalar u, RowVectorType probs)
+{
+    // First we need to normalize the probabilities
+    Scalar p_total = 0.0;
+    for(int i=0; i<N; i++) p_total += probs(i);
+
+    Scalar C[N+1];
+    C[0] = 0.0;
+    for(int i=0; i<N; i++) C[i+1] = C[i] + probs(i)/p_total;
+
+    unsigned int idx;
+    for(idx=0; idx<(N+1); idx++)
+        if(C[idx] <= u && u < C[idx+1])
+            break;
+
+    return idx;
+
+}
+
 
 KOKKOS_FUNCTION
 Scalar fixedStep_LA_kernel(
@@ -157,6 +202,8 @@ Scalar fixedStep_LA_kernel(
 ParticleArray::ParticleArray(int N, int T) : N(N), T(T) 
 {
 
+    random_pool = RandPoolType(42);
+
     B = MatrixType("B",N,T);
     burst = IntMatrixType("burst",N,T);
     C = StateMatrixType("C",N,T);
@@ -188,6 +235,9 @@ ParticleArray::ParticleArray(int N, int T) : N(N), T(T)
 
     ar_logW = VectorType("ar_logW",N);
     ar_logW_h = Kokkos::create_mirror_view(ar_logW);
+
+    new_ancestors = IntVectorType("new_ancestors",N);
+    new_ancestors_h = Kokkos::create_mirror_view(new_ancestors);
 
 }
 
@@ -349,10 +399,16 @@ void ParticleArray::calc_ancestor_resampling(
 
                 logW(part_idx) = logWeight(part_idx, t-1);
                 ar_logW(part_idx) = logWeight(part_idx, t-1) + lf;
+
+                // auto generator = random_pool.get_state();
+                // int rand_a = Kokkos::rand<RandGenType, int>::draw(generator, 0, N-1);
+                // ancestor(part_idx, t) = rand_a ;
+                // random_pool.free_state(generator);
                 
+
             });
     Kokkos::fence();
-
+ 
     // Copy back to host (can remove this later when random number generation is done on GPU)
     Kokkos::deep_copy(logW_h, logW);
     Kokkos::deep_copy(ar_logW_h, ar_logW);
@@ -364,6 +420,7 @@ void ParticleArray::move_and_weight(
     VectorType y, 
     const param &par, constpar *constants, 
     VectorType g_noise, std::vector<double> & u_noise,
+    VectorType u_noise_view,
     const GCaMP_params & params)
 {
 
@@ -372,7 +429,7 @@ void ParticleArray::move_and_weight(
     Scalar rate[2] = {par.r0*dt,par.r1*dt};
     Scalar W[2][2] = {{1-par.wbb[0]*dt, par.wbb[0]*dt},
         {par.wbb[1]*dt, 1-par.wbb[1]*dt}};
-    
+    Scalar sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));  
     Scalar z[2] = {par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)),
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
 
@@ -393,6 +450,9 @@ void ParticleArray::move_and_weight(
                 int b = floor(spike_idx/maxspikes);
                 int ns    = spike_idx % maxspikes;
              
+                // Update the ancestors that we generated on the CPU
+                ancestor(particle_idx, t) = new_ancestors(particle_idx);
+
                 int a = ancestor(particle_idx, t);
                 int parent_b = burst(a, t-1);
                 Scalar parent_B = B(a, t-1);
@@ -423,13 +483,14 @@ void ParticleArray::move_and_weight(
                     if (log_probs(part_idx,i) > max_log_prob) 
                         max_log_prob = log_probs(part_idx, i);
                     
-                // Compute w (probs) and Z
+                // Compute w (probs)
                 Scalar Z_tmp = 0;
                 for(int i=0;i<2*maxspikes;i++) {
                     probs(part_idx, i) = exp(log_probs(part_idx, i)-max_log_prob);
                     Z_tmp += probs(part_idx, i);
                 }
-
+                
+                // and Z
                 Z_tmp = Z_tmp*exp(max_log_prob);
                 logWeight(part_idx, t) = log(Z_tmp);
 
@@ -438,37 +499,50 @@ void ParticleArray::move_and_weight(
     // // Wait for kernel to complete
     Kokkos::fence();
 
-    // Copy probabilities to host so we can generate the discrete random variables
-    // Will do this on GPU in the future after testing
-    IntVectorType discrete = IntVectorType("discrete", N);
-    IntVectorType::HostMirror discrete_h = Kokkos::create_mirror_view(discrete);
+    // // Copy probabilities to host so we can generate the discrete random variables
+    // // Will do this on GPU in the future after testing
+    // IntVectorType discrete = IntVectorType("discrete", N);
+    // IntVectorType::HostMirror discrete_h = Kokkos::create_mirror_view(discrete);
 
-    MatrixType::HostMirror probs_h = Kokkos::create_mirror_view(probs);
-    Kokkos::deep_copy(probs_h, probs);
-    for(int i=0;i<N;i++) {
-        double probs_tmp[2*maxspikes];
-        for(int j=0;j<2*maxspikes;j++) probs_tmp[j] = probs_h(i,j);
-        gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs_tmp);
-        discrete_h(i) = utils::gsl_ran_discrete_from_uniform(rdisc, u_noise[i]);
-        gsl_ran_discrete_free(rdisc);
-    }
-    Kokkos::deep_copy(discrete, discrete_h);
+    // MatrixType::HostMirror probs_h = Kokkos::create_mirror_view(probs);
+    // Kokkos::deep_copy(probs_h, probs);
+    // for(int i=0;i<N;i++) {
+    //     double probs_tmp[2*maxspikes];
+    //     for(int j=0;j<2*maxspikes;j++) probs_tmp[j] = probs_h(i,j);
+    //     gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs_tmp);
+    //     int discrete_cpu = utils::gsl_ran_discrete_from_uniform(rdisc, u_noise[i]);
+    //     // int discrete_gpu = discrete_from_uniform<2*maxspikes>(u_noise[i], Kokkos::subview(probs_h, i, Kokkos::ALL));
+
+    //     // if(discrete_cpu != discrete_gpu){
+    //     //     cout << "TIME=" << t << ", Particle=" << i << ", Discrete CPU: " << discrete_cpu << ", Discrete GPU: " << discrete_gpu << endl;
+    //     // }   
+
+    //     discrete_h(i) = discrete_cpu;
+    //     gsl_ran_discrete_free(rdisc);
+    // }
+    // Kokkos::deep_copy(discrete, discrete_h);
 
     // Move the particles
     Kokkos::parallel_for("move_particles",
         Kokkos::RangePolicy<ExecSpace>(0, N),
             KOKKOS_CLASS_LAMBDA(const int part_idx) {
-                // move particle if not already set
-                int idx = discrete(part_idx);
 
+                // move particle if not already set
                 if(part_idx != 0){
+                    auto generator = random_pool.get_state();
+
+                    Scalar u = Kokkos::rand<RandGenType, Scalar>::draw(generator, 0.0, 1.0);
+                    int idx = discrete_from_uniform<2*maxspikes>(u, Kokkos::subview(probs, part_idx, Kokkos::ALL));
+                    // idx = discrete(part_idx);
+
                     burst(part_idx, t) = floor(idx/maxspikes);
                     S(part_idx, t) = idx%maxspikes;
 
-                    Scalar g_noise_val = g_noise(part_idx);
-                    Scalar parent_B = B(ancestor(part_idx, t), t-1);
+                    // B(part_idx, t) = B(ancestor(part_idx, t), t-1) + g_noise(part_idx);
+                    B(part_idx, t) = B(ancestor(part_idx, t), t-1) + generator.normal(0.0, sigma_B_posterior);
 
-                    B(part_idx, t) = B(ancestor(part_idx, t), t-1) + g_noise(part_idx);
+                    // do not forget to release the state of the engine
+                    random_pool.free_state(generator);
                 }
                 
                 // model->evolve_threadsafe(dt, part.S, parent.C, state_out, ct);

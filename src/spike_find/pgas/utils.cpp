@@ -56,7 +56,6 @@ namespace utils {
         }
     }
 
-
 }
 
 namespace stats {
