@@ -681,23 +681,23 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
             particleArray.new_ancestors_h(i) = particleSystem[t][i].ancestor;
         Kokkos::deep_copy(particleArray.new_ancestors, particleArray.new_ancestors_h);
 
-        // Pregenerate noise so we can have noise that is not dependent on the thread execution order
-        double dt = 1.0/constants->sampling_frequency;
-        double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));  
-        for(i=0;i<nparticles;i++){
-            if(i != 0) {
-                u_noise[i] = gsl_rng_uniform(rng);
-                g_noise[i] = gsl_ran_gaussian(rng,sigma_B_posterior);
-            }
-        }
+        // // Pregenerate noise so we can have noise that is not dependent on the thread execution order
+        // double dt = 1.0/constants->sampling_frequency;
+        // double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));  
+        // for(i=0;i<nparticles;i++){
+        //     if(i != 0) {
+        //         u_noise[i] = gsl_rng_uniform(rng);
+        //         g_noise[i] = gsl_ran_gaussian(rng,sigma_B_posterior);
+        //     }
+        // }
 
-        // Copy noise to device memory
-        for(i=0;i<nparticles;i++){
-            g_noise_h(i) = g_noise[i];
-            u_noise_h(i) = u_noise[i];
-        }
-        Kokkos::deep_copy(g_noise_view, g_noise_h);
-        Kokkos::deep_copy(u_noise_view, u_noise_h);
+        // // Copy noise to device memory
+        // for(i=0;i<nparticles;i++){
+        //     g_noise_h(i) = g_noise[i];
+        //     u_noise_h(i) = u_noise[i];
+        // }
+        // Kokkos::deep_copy(g_noise_view, g_noise_h);
+        // Kokkos::deep_copy(u_noise_view, u_noise_h);
         
         // Copy back to host so we can theck things.
         particleArray.move_and_weight(t, data_y_view, par, constants, g_noise_view, u_noise, u_noise_view, params);

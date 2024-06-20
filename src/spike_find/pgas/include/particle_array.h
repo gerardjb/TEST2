@@ -13,8 +13,7 @@ using Scalar = double;
 #define USE_GPU
 
 #ifndef USE_GPU
-// using ExecSpace = Kokkos::Serial;
-// using MemSpace = Kokkos::HostSpace;
+    // using ExecSpace = Kokkos::Serial;
     using ExecSpace = Kokkos::OpenMP;
     using MemSpace = Kokkos::HostSpace;
 #else

@@ -407,7 +407,7 @@ void ParticleArray::calc_ancestor_resampling(
                 
 
             });
-    Kokkos::fence();
+    Kokkos::fence("fence_calc_ancestor_weights");
  
     // Copy back to host (can remove this later when random number generation is done on GPU)
     Kokkos::deep_copy(logW_h, logW);
@@ -438,9 +438,9 @@ void ParticleArray::move_and_weight(
     // We don't actually need this value, but we need to pass it to the kernel
     // save_state=false will make sure it isn't written to, which would cause 
     // problems because it is the same address for all particles.
-    StateMatrixType state_out_tmp("state_out_tmp", 1, 1, 12);
+    // StateMatrixType state_out_tmp("state_out_tmp", 1, 1, 12);
     // StateVectorType state_out("state_out", 12);
-    StateVectorType state_out = Kokkos::subview(state_out_tmp, 0, 0, Kokkos::ALL);
+    StateVectorType state_out = Kokkos::subview(C, 0, 0, Kokkos::ALL);
 
     Kokkos::parallel_for("evolve_for_maxspikes",
 		Kokkos::RangePolicy<ExecSpace>(0, N*maxspikes*2),
@@ -470,7 +470,7 @@ void ParticleArray::move_and_weight(
             });
 
     // // Wait for kernel to complete
-    Kokkos::fence();
+    Kokkos::fence("fence_evolve_for_maxspikes");
 
     // Calclulate w and Z
     Kokkos::parallel_for("w_and_Z",
@@ -497,7 +497,7 @@ void ParticleArray::move_and_weight(
             });
 
     // // Wait for kernel to complete
-    Kokkos::fence();
+    Kokkos::fence("fence_w_and_Z");
 
     // // Copy probabilities to host so we can generate the discrete random variables
     // // Will do this on GPU in the future after testing
@@ -533,7 +533,7 @@ void ParticleArray::move_and_weight(
 
                     Scalar u = Kokkos::rand<RandGenType, Scalar>::draw(generator, 0.0, 1.0);
                     int idx = discrete_from_uniform<2*maxspikes>(u, Kokkos::subview(probs, part_idx, Kokkos::ALL));
-                    // idx = discrete(part_idx);
+                    // int idx = discrete(part_idx);
 
                     burst(part_idx, t) = floor(idx/maxspikes);
                     S(part_idx, t) = idx%maxspikes;
@@ -553,6 +553,6 @@ void ParticleArray::move_and_weight(
 
             });
 
-    Kokkos::fence();
+    Kokkos::fence("fence_move_particles");
 
 }
