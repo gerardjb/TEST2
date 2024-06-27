@@ -7,7 +7,37 @@
 #include<ctime>
 #include"include/GCaMP_model.h"
 #include<iomanip>
-#include<boost/circular_buffer.hpp>
+
+// A helper function that generates a discrete random variable from a uniform sample.
+// This function lets us pre-generate noise samples for the move and weight steps
+// Ahead of time to aid in reproducibility.
+#include <gsl/gsl_randist.h>
+size_t gsl_ran_discrete_from_uniform(const gsl_ran_discrete_t *g, double u)
+{
+
+    #define KNUTH_CONVENTION 1
+
+    size_t c=0;
+    double f;
+#if KNUTH_CONVENTION
+    c = (u*(g->K));
+#else
+    u *= g->K;
+    c = u;
+    u -= c;
+#endif
+    f = (g->F)[c];
+    /* fprintf(stderr,"c,f,u: %d %.4f %f\n",c,f,u); */
+    if (f == 1.0) return c;
+
+    if (u < f) {
+        return c;
+    }
+    else {
+        return (g->A)[c];
+    }
+}
+
 using namespace std;
 
 // PARTICLE CLASS
@@ -304,7 +334,7 @@ double SMC::logf(const Particle &pin, const Particle &pout, const param &par){
 
 // Here part.S is supposed to be given.
 //
-void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, const param &par, bool set=false){
+void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, const param &par, double g_noise, double u_noise, bool set=false){
 
     double probs[2];
     double log_probs[2];
@@ -323,9 +353,9 @@ void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, 
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
     double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));
     
-    model->evolve(dt,(int)ns,parent.C);
-    ct = model->DFF;
-
+    arma::vec state_out(12);
+    model->evolve_threadsafe(dt, (int)ns, parent.C, state_out, ct);
+    
     log_probs[0] = log(W[parent.burst][0]);
     log_probs[0] += ns*log(rate[0]) - log(gsl_sf_gamma(ns+1)) -rate[0];
     log_probs[0] += -0.5/(par.sigma2+pow(constants->bm_sigma,2))*pow(y-ct-parent.B,2);
@@ -341,19 +371,20 @@ void SMC::move_and_weight_GTS(Particle &part, const Particle& parent, double y, 
     if(!set){
         // move particle if not already set
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2, probs);
-        int idx = gsl_ran_discrete(rng,rdisc);
+        int idx = gsl_ran_discrete_from_uniform(rdisc, u_noise);
 
         part.burst = idx;
-        part.B     = z[0]*parent.B+z[1]*(y-parent.C(0)) + gsl_ran_gaussian(rng,sigma_B_posterior);
+        part.B     = z[0]*parent.B+z[1]*(y-parent.C(0)) + g_noise;
 
         gsl_ran_discrete_free(rdisc);
     }
     
-    part.C     = model->state;
+    // part.C     = model->state;
+    part.C = state_out;
 
 }
 
-void SMC::move_and_weight(Particle &part, const Particle& parent, double y, const param &par, bool set=false){
+void SMC::move_and_weight(Particle &part, const Particle& parent, double y, const param &par, double g_noise, double u_noise, bool set=false){
 
     const int maxspikes = 2;  // The number of spikes goes from 0 to maxspikes-1
     double probs[2*maxspikes];
@@ -371,13 +402,13 @@ void SMC::move_and_weight(Particle &part, const Particle& parent, double y, cons
                    dt*pow(constants->bm_sigma,2)/(par.sigma2+dt*pow(constants->bm_sigma,2))};
     double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));
     
+    arma::vec state_out(12);
     for(unsigned int i=0;i<2*maxspikes;i++){
 
         burst = floor(i/maxspikes);
         ns    = i%maxspikes;
 
-        model->evolve(dt,(int)ns,parent.C);
-        ct    = model->DFF;
+        model->evolve_threadsafe(dt, (int)ns, parent.C, state_out, ct);
         
         log_probs[i] = log(W[parent.burst][burst]);
         log_probs[i] += ns*log(rate[burst]) - log(gsl_sf_gamma(ns+1)) -rate[burst];
@@ -393,19 +424,19 @@ void SMC::move_and_weight(Particle &part, const Particle& parent, double y, cons
     if(!set){
         // move particle if not already set
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(2*maxspikes, probs);
-        int idx = gsl_ran_discrete(rng,rdisc);
+        int idx = gsl_ran_discrete_from_uniform(rdisc, u_noise);
 
         part.burst = floor(idx/maxspikes);
         part.S     = idx%maxspikes;
 
         //part.B     = z[0]*parent.B+z[1]*(y-model->getDFF(parent.C)) + gsl_ran_gaussian(rng,sigma_B_posterior);
-        part.B     = parent.B + gsl_ran_gaussian(rng,sigma_B_posterior);
+        part.B     = parent.B + g_noise;
 
         gsl_ran_discrete_free(rdisc);
     }
     
-    model->evolve(dt,part.S,parent.C);
-    part.C     = model->state;
+    model->evolve_threadsafe(dt, part.S, parent.C, state_out, ct);
+    part.C     = state_out;
 
 }
 
@@ -553,6 +584,10 @@ void SMC::PF(const param &par){
         rmu(particleSystem[0][i],data_y(0),par);
     }
 
+    vector<double> g_noise(nparticles);
+    vector<double> u_noise(nparticles);
+    vector<int> a_noise(nparticles);
+
     for(unsigned int t=1;t<TIME;++t){
         // Multinomial resampling
         // // // collect weights
@@ -564,15 +599,27 @@ void SMC::PF(const param &par){
 
         gsl_ran_discrete_t *rdisc = gsl_ran_discrete_preproc(nparticles, w);
         
+        // Pregenerate noise so we can have noise that is not dependent on the thread execution order
+        double dt = 1.0/constants->sampling_frequency;
+        double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));  
+        for(unsigned int i=0;i<nparticles;i++){
+            if(i != 0) {
+                a_noise[i] = gsl_ran_discrete(rng,rdisc);
+                u_noise[i] = gsl_rng_uniform(rng);
+                g_noise[i] = gsl_ran_gaussian(rng,sigma_B_posterior);
+            }
+        }
+
+        #pragma omp parallel for schedule(static)
         for(unsigned int i=0;i<nparticles;i++){
             
             //set ancestor of particle i
-            unsigned int a = gsl_ran_discrete(rng,rdisc);
-            particleSystem[t][i].ancestor = a; 
+            
+            particleSystem[t][i].ancestor = a_noise[i]; 
             particleSystem[t][i].logWeight = -log(nparticles);
 
             //move particle
-            move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par);
+            move_and_weight(particleSystem[t][i], particleSystem[t-1][a_noise[i]], data_y(t), par, g_noise[i], u_noise[i]);
         }
 
         gsl_ran_discrete_free(rdisc);
@@ -655,10 +702,14 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     for(i=0;i<nparticles;++i){
         rmu(particleSystem[0][i],data_y(0),par,i==0); // i==0 allows to generate latent states only if i!=0
     }
-    cout<<"Line 645"<<endl;
+
+    vector<double> g_noise(nparticles);
+    vector<double> u_noise(nparticles);
+        
     for(t=1;t<TIME;++t){
-         cout<<"    "<<t<<"      \r"<<flush;
+        // cout<<"    "<<t<<"      \r"<<flush;
         // Retrieve weights and calculate ancestor resampling weights for particle 0
+        #pragma omp parallel for schedule(static)
         for(i=0;i<nparticles;i++){
             logW[i] = particleSystem[t-1][i].logWeight;
             ar_logW[i] = logW[i]+logf(particleSystem[t-1][i],particleSystem[t][0],par);
@@ -680,13 +731,24 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
             particleSystem[t][i].ancestor = a;
         }
 
+        // Pregenerate noise so we can have noise that is not dependent on the thread execution order
+        double dt = 1.0/constants->sampling_frequency;
+        double sigma_B_posterior = sqrt(dt*pow(constants->bm_sigma,2)*par.sigma2/(par.sigma2+dt*pow(constants->bm_sigma,2)));  
+        for(i=0;i<nparticles;i++){
+            if(i != 0) {
+                u_noise[i] = gsl_rng_uniform(rng);
+                g_noise[i] = gsl_ran_gaussian(rng,sigma_B_posterior);
+            }
+        }
+    
         // Move and weight particles
+        #pragma omp parallel for schedule(static)
         for(i=0;i<nparticles;i++){
             a = particleSystem[t][i].ancestor;
             if(constants->KNOWN_SPIKES){
-                move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, i==0);
+                move_and_weight_GTS(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
             } else {
-                move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, i==0);
+                move_and_weight(particleSystem[t][i], particleSystem[t-1][a], data_y(t), par, g_noise[i], u_noise[i], i==0);
             }
         }
 

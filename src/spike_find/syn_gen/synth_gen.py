@@ -30,7 +30,8 @@ class synth_gen():
     
     # Get current directory of this file, prepend to noise_dir
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    full_noise_path = os.path.join(current_dir, noise_dir)
+    self.noise_dir = noise_dir
+    full_noise_path = os.path.join(current_dir, self.noise_dir)
 
     # Synth data settings
     self.spike_rate = spike_rate
@@ -39,7 +40,6 @@ class synth_gen():
 
     
     # Determine noise directory and get the file list, get path elements
-    self.noise_dir = noise_dir
     self.noise_files = [os.path.join(full_noise_path, f) for f in os.listdir(full_noise_path) if f.endswith('.mat')]
     self.tag = tag
     
@@ -202,7 +202,9 @@ class synth_gen():
         CAttached[0][ii] = new_inner_array
         print("CAttached[0][ii].dtype.descr = ",CAttached[0][ii].dtype.descr)
       
-      save_path = os.path.join(synth_dir, os.path.basename(file))
+      stub,ext = os.path.basename(file)
+      fname = stub + '_rate='+str(self.spike_rate) + ext
+      save_path = os.path.join(synth_dir, fname)
       print("save_path = ", save_path)
       sio.savemat(save_path, {'CAttached': CAttached})
       
