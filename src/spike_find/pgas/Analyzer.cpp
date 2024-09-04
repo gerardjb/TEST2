@@ -12,24 +12,26 @@ using namespace std;
 
  Analyzer::Analyzer(const arma::vec& time, const arma::vec& data, const std::string& constants_file, const std::string& output_folder,
              unsigned int column, const std::string& tag, unsigned int niter, const std::string& trainedPriorFile,
-             bool append, unsigned int trim, bool verbose, const std::string& gtSpike_file,
-             bool has_trained_priors, bool has_gtspikes, unsigned int maxlen, const std::string& Gparam_file)
+             bool append, unsigned int trim, bool verbose, const arma::vec& gtSpikes,
+             bool has_trained_priors, bool has_gtspikes, unsigned int maxlen, const std::string& Gparam_file, int seed)
         : time(time), data(data), constants_file(constants_file), output_folder(output_folder), column(column), tag(tag),
           niter(niter), trainedPriorFile(trainedPriorFile), append(append), trim(trim), verbose(verbose),
-          gtSpike_file(gtSpike_file), has_trained_priors(has_trained_priors), has_gtspikes(has_gtspikes),
-          maxlen(maxlen), Gparam_file(Gparam_file) {
-            cout<<"time[2]_in_constructor="<<time[2]<<endl;
-          }
+          gtSpikes(gtSpikes), has_trained_priors(has_trained_priors), has_gtspikes(has_gtspikes),
+          maxlen(maxlen), Gparam_file(Gparam_file),seed(seed){}
 
+//For keeping a running list of time-independent pgas MC parameter estimates
+void Analyzer::add_parameter_sample(const std::vector<double>& parameter_sample) {
+    parameter_estimates.push_back(parameter_sample);
+}
 
+const std::vector<std::vector<double>>& Analyzer::get_parameter_estimates() const {
+    return parameter_estimates;
+}
 
 void Analyzer::run() {
     // Other init type stuff that was needed
     int existing_samples=0;
-    cout<<"time(2)="<<time(2)<<endl;
-	cout<<"time(1)="<<time(1)<<endl;
-    cout<<"time(0)="<<time(0)<<endl;
-    cout<<"time.n_elem="<<time.n_elem<<endl;
+
     // Original main function code here, replace argc/argv handling with member variables
     constpar constants(constants_file);
     constants.output_folder = output_folder;
@@ -77,11 +79,18 @@ void Analyzer::run() {
     param testpar2(output_folder + "/param_samples_" + tag + ".dat");
 		
     // loading the ground truth spikes
-    arma::vec gtSpikes; 
+    // arma::vec gtSpikes; 
     if (has_gtspikes) {
         constants.KNOWN_SPIKES = true;
-        gtSpikes.load(gtSpike_file, arma::raw_ascii);
+        cout << "We think there are known spikes" << endl;
+        //gtSpikes.load(gtSpike_file, arma::raw_ascii);
     }
+    if (gtSpikes.n_elem==1){
+        cout << "We do not think there are known spikes" << endl;
+        constants.KNOWN_SPIKES = false;
+        has_gtspikes = false;
+    }
+    
 
     if (has_trained_priors) {
         string dum;
@@ -106,12 +115,11 @@ void Analyzer::run() {
 
     // Initialize the sampler (this will also reset the scales, that's why we need to initialize after we update the constants)
     // note the different constructors for SMC class here - one expects Analyzer to be called with a filename, the other takes data passed in directly
-    cout<<"time(1)="<<time(1)<<endl;
-    cout<<"time(0)="<<time(0)<<endl;
-    SMC sampler(time, data, column, constants, false, 0, maxlen, Gparam_file);
-    cout<<"line 112_Analyzer"<<endl;
+
+    SMC sampler(time, data, column, constants, false, seed, maxlen, Gparam_file);
+
     // Initialize the trajectory
-    cout<<"sampler.TIME = "<<sampler.TIME<<endl;
+
     Trajectory traj_sam1(sampler.TIME, ""), traj_sam2(sampler.TIME, output_folder + "/traj_samples_" + tag + ".dat");
     cout<<"sampler.TIME = "<<sampler.TIME<<endl;
     for (unsigned int t = 0; t < sampler.TIME; ++t) {
@@ -123,7 +131,7 @@ void Analyzer::run() {
         traj_sam1.Y(t) = 0;
         //cout<<t<<endl;
     }
-    cout<<"line 124_Analyzer"<<endl;
+
     // set initial parameters 
     if (append) {
         cout << "Use parameters from previous analysis" << endl;
@@ -157,7 +165,7 @@ void Analyzer::run() {
         testpar.gam_in = constants.gam_in_mean;
         testpar.gam_out = constants.gam_out_mean;
     }
-		cout<<"Constants params G_tot: "<<constants.G_tot_mean<<endl;
+	
     cout << "start MCMC loop" << endl;
 		
 
@@ -177,6 +185,12 @@ void Analyzer::run() {
 				
 
         if (i % trim == 0) {
+            add_parameter_sample({testpar.G_tot,
+                testpar.gamma,
+                testpar.DCaT,
+                testpar.Rf,
+                testpar.gam_in,
+                testpar.gam_out});
             testpar.write(parsamples, constants.sampling_frequency);
             traj_sam2.write(trajsamples, i / trim);
             logp << testpar.logPrior(constants) + traj_sam2.logp(&testpar, &constants) << endl;

@@ -33,17 +33,36 @@ py::array_t<double> get_final_params(Analyzer& analyzer) {
   return result;
 }
 
+
 PYBIND11_MODULE(pgas_bound, m) {
 	// bindings for Analyzer.cpp
 		py::class_<Analyzer>(m, "Analyzer")
         .def(py::init<const arma::vec&, const arma::vec&, const std::string&, const std::string&, unsigned int, const std::string&, unsigned int,
-                      const std::string&, bool, unsigned int, bool, const std::string&, bool, bool, unsigned int, const std::string&>(),
+                      const std::string&, bool, unsigned int, bool, const arma::vec&, bool, bool, unsigned int, const std::string&, int>(),
              py::arg("time"), py::arg("data"), py::arg("constants_file"), py::arg("output_folder"), py::arg("column"), py::arg("tag"),
              py::arg("niter") = 0, py::arg("trainedPriorFile") = "", py::arg("append") = false, py::arg("trim") = 1,
-             py::arg("verbose") = true, py::arg("gtSpike_file") = "", py::arg("has_trained_priors") = false, py::arg("has_gtspikes") = false,
-             py::arg("maxlen") = 0, py::arg("Gparam_file") = "")
+             py::arg("verbose") = true, py::arg("gtSpikes") = 0, py::arg("has_trained_priors") = false, py::arg("has_gtspikes") = false,
+             py::arg("maxlen") = 0, py::arg("Gparam_file") = "", py::arg("seed") = 0)
         .def("run", &Analyzer::run)
-				.def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
+        .def("add_parameter_sample", &Analyzer::add_parameter_sample)
+        .def("get_parameter_estimates", [](const Analyzer &a) {
+            const auto& estimates = a.get_parameter_estimates();
+            size_t rows = estimates.size();
+            size_t cols = rows > 0 ? estimates[0].size() : 0;
+            // Create a NumPy array to hold the data
+            py::array_t<double> result({rows, cols});
+            auto result_buffer = result.request();
+            double* result_ptr = static_cast<double*>(result_buffer.ptr);
+
+            // Copy data from std::vector to the NumPy array
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    result_ptr[i * cols + j] = estimates[i][j];
+                }
+            }
+            return result;
+        })
+		.def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
 	
 	//In case any other functions or classes need to be exposed to python during future iterations
 	/*// bindings for constants.cpp

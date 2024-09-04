@@ -26,7 +26,7 @@ from scipy.stats import norm
 
 class synth_gen():
   def __init__(self, spike_rate=2, spike_params=[5, 0.5],cell_params=[30e-6, 10e2, 1e-5, 5, 30, 10],
-    noise_dir="gt_noise_dir", GCaMP_model=None, tag="default", plot_on=False):
+    noise_dir="gt_noise_dir", GCaMP_model=None, tag="default", plot_on=False,use_noise=True,noise_val=2):
     
     # Get current directory of this file, prepend to noise_dir
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -42,12 +42,20 @@ class synth_gen():
     # Determine noise directory and get the file list, get path elements
     self.noise_files = [os.path.join(full_noise_path, f) for f in os.listdir(full_noise_path) if f.endswith('.mat')]
     self.tag = tag
+    #Handling noise cases
+    self.use_noise = use_noise
+    self.noise_val = noise_val
     
     # Load the GCaMP_model
     self.gcamp = GCaMP_model
     
     #For QC plots
     self.plot_on = plot_on
+
+  def calculate_standardized_noise(self,dff,frame_rate):
+    noise_levels = np.nanmedian(np.abs(np.diff(dff, axis=-1)), axis=-1) / np.sqrt(frame_rate)
+    return noise_levels * 100     # scale noise levels to percent
+
     
   def spk_gen(self,T):
     """
@@ -184,6 +192,14 @@ class synth_gen():
         noise = inner_array['gt_noise'][0][0]
         time = inner_array['fluo_time'][0][0]
         T = time[-1] - time[0]
+
+        #Check standardized noise and toss if over criterion
+        if self.use_noise:
+          frame_rate = 1/np.mean(np.diff(time))
+          standard_noise = self.calculate_standardized_noise(noise.T,frame_rate.T)
+          if standard_noise>self.noise_val:
+            break
+
         try:
           spikes = self.spk_gen(T) + time[0]
         
@@ -202,8 +218,10 @@ class synth_gen():
         CAttached[0][ii] = new_inner_array
         print("CAttached[0][ii].dtype.descr = ",CAttached[0][ii].dtype.descr)
       
-      stub,ext = os.path.basename(file)
-      fname = stub + '_rate='+str(self.spike_rate) + ext
+      basename = os.path.basename(file)
+      file_name, extension = os.path.splitext(basename)
+      fname = 'rate='+str(self.spike_rate) + 'param='+str(self.spike_params[0])+ '_'+ str(self.spike_params[1]) +\
+        file_name + extension
       save_path = os.path.join(synth_dir, fname)
       print("save_path = ", save_path)
       sio.savemat(save_path, {'CAttached': CAttached})

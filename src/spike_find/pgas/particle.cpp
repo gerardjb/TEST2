@@ -244,13 +244,10 @@ SMC::SMC(arma::vec time, arma::vec data, int index, constpar& cst, bool has_head
 
     // The time units here are assumed to be seconds
     data_time = time;
-    cout<<"data_time.n_elem="<<data_time.n_elem<<endl;
-    cout<<"data_time(0)="<<data_time(0)<<endl;
     constants->sampling_frequency = 1.0 / (data_time(2)-data_time(1));
     cout << "setting sampling frequency to: "<<constants->sampling_frequency << endl;
     constants->set_time_scales();
     data_y = data;
-    cout<<"data_y.n_elem = "<<data_y.n_elem<<endl;
 
     // set number of particles
     nparticles=constants->nparticles;
@@ -696,8 +693,7 @@ void SMC::PGAS(const param &par, const Trajectory &traj_in, Trajectory &traj_out
     // define weights
     double w[nparticles],logW[nparticles];
     double ar_w[nparticles], ar_logW[nparticles];
-		
-    cout<<"data_y.n_rows = "<<data_y.n_rows<<"; data_y.n_cols ="<<data_y.n_cols<<endl;
+	
     // initialize all particles at time 0 (excluded particle 0) and set all weights
     for(i=0;i<nparticles;++i){
         rmu(particleSystem[0][i],data_y(0),par,i==0); // i==0 allows to generate latent states only if i!=0
