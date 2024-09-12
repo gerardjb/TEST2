@@ -201,8 +201,9 @@ class synth_gen():
             break
 
         try:
+          
           spikes = self.spk_gen(T) + time[0]
-        
+          
           #Simulation
           self.gcamp.integrateOverTime(time.flatten().astype(float), spikes.flatten().astype(float))
           dff_clean = self.gcamp.getDFFValues()
@@ -211,7 +212,8 @@ class synth_gen():
           #new_inner_array['fluo_mean'] = np.empty((1, 1), dtype='|O')
           new_inner_array['fluo_mean'][0][0] = np.array([dff_clean.flatten() + noise.flatten()])
           #new_inner_array['events_AP'] = np.empty((1, 1), dtype='|O')
-          new_inner_array['events_AP'][0][0] = spikes*1e4
+          
+          new_inner_array['events_AP'][0][0] = spikes.reshape(-1,1)*1e4
         except Exception:
           break
         

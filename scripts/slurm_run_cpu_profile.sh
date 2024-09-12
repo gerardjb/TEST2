@@ -10,5 +10,5 @@ module load anaconda3/2024.2
 conda activate spike_find
 
 export OMP_NUM_THREADS=32
-
-python TEST2_inh.py
+cd ..
+python TEST2.py

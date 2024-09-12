@@ -14,8 +14,8 @@ checks.check_packages()
 
 #Setting flags for what to calculate on this run
 recalc_Cparams = True
-recalc_synth = False
-retrain_and_infer = False
+recalc_synth = True
+retrain_and_infer = True
 
 #Utility-type methods
 def spike_times_2_binary(spike_times,time_stamps):
@@ -50,50 +50,45 @@ def calculate_standardized_noise(dff,frame_rate):
 
 """Test a run of the particle Gibbs sampler to extract cell parameters"""
 # First we'll load in the original data as a numpy array
-#janelia_file = "jGCaMP8f_ANM471993_cell03" #"jGCaMP8f_ANM478349_cell06" #
-#filename = os.path.join("gt_data",janelia_file+".mat")
-janelia_file = 'test'
-filename = "/scratch/gpfs/gerardjb/TEST2/sample_data/output/sim4fig3/test.mat"
+#janelia_file = "jGCaMP8f_ANM471993_cell03" (high SNR excitatory)#"jGCaMP8f_ANM478349_cell06" (low SNR inhibitory)
+janelia_file = "jGCaMP8f_ANM471993_cell03"
+filename = os.path.join("gt_data",janelia_file+".mat")
+#filename = "/scratch/gpfs/gerardjb/TEST2/sample_data/output/sim4fig3/test.mat"
 
 time,data,spike_times = open_Janelia_1(filename)
-time1 = np.float64(time[0,:]) #,2000:4080-1])
+time1 = np.float64(time[0,1000:2000])
 time1 = time1.copy()
-data1 = np.float64(data[0,:]) #,2000:4080-1])
+data1 = np.float64(data[0,1000:2000])
 data1 = data1.copy()
-#binary_spikes = np.float64(spike_times_2_binary(spike_times,time1))
-binary_spikes = np.float64([0])
+binary_spikes = np.float64(spike_times_2_binary(spike_times,time1))
+#binary_spikes = np.float64([0])
 
 # Run the particle Gibbs sampler to extract cell parameters
 ## Setting up parameters for the particle gibbs sampler
 #data_file="tests/sample_data/LineScan-11302022-0954-009_0_data_poisson.dat"
-constants_file="tests/sample_data/constants_GCaMP3_soma.json"
-output_folder="sample_data/output"
-column=1
-tag="default_janelia_sample_excitatory3_1" #inhibitory" #excitatory"
 model_choice = "cRNN_no_relu"
 syn_tag = "cRNN_no_relu_janelia"
-niter=500
-gtSpikes = binary_spikes
-maxlen=1000
+tag="default_janelia_test"
 Gparam_file="src/spike_find/pgas/20230525_gold.dat"
-verbose=1
-##Now we need to test if we have already calculated parameters for this file
-final_params_fname = os.path.join("sample_data","output",janelia_file+".dat")
 
-if not os.path.isfile(final_params_fname) and recalc_Cparams:
+##Now we need to test if we have already calculated parameters for this file
+final_params_fname = os.path.join("sample_data","output","final_params"+janelia_file+".dat")
+param_sample_file = os.path.join("sample_data","output","param_samples_"+tag+".dat")
+
+if recalc_Cparams:
     analyzer = pgas.Analyzer(
         time=time1,
         data=data1,
-        constants_file=constants_file,
-        output_folder=output_folder,
-        column=column,
+        constants_file="tests/sample_data/constants_GCaMP3_soma.json",
+        output_folder="sample_data/output",
+        column=1,
         tag=tag,
-        niter=niter,
+        niter=300,
         append=False,
-        verbose=verbose,
-        gtSpikes=gtSpikes,
+        verbose=1,
+        gtSpikes=binary_spikes,
         has_gtspikes=True,
-        maxlen=maxlen, 
+        maxlen=1000, 
         Gparam_file=Gparam_file,
         seed=2
     )
@@ -104,16 +99,20 @@ if not os.path.isfile(final_params_fname) and recalc_Cparams:
     ## Return and print the output
     final_params = analyzer.get_final_params()
     parameter_samples = analyzer.get_parameter_estimates()
-    ## Save these for use in the future for server disconnect
+    ## Save these for use in the future for server disconnect, etc.
     np.save(final_params_fname,final_params)
+    ## Save parameter samples
+    np.savetxt(param_sample_file,parameter_samples,delimiter=',',fmt='%f')
 else:
+    ## Opening the saved final sample
     final_params = np.load(final_params_fname+".npy")
-    print("last sample")
-    print(final_params)
-#Opening the saved parameter samples for use as Cparams
-param_sample_file = os.path.join("sample_data","output","param_samples_"+tag+".dat")
-parameter_samples = np.loadtxt(param_sample_file,delimiter=',',skiprows=1)
-burnin = 100
+    ## Opening the saved parameter samples for use as Cparams
+    parameter_samples = np.loadtxt(param_sample_file,delimiter=',',skiprows=1)
+
+# Prepare Cparams calculation from parameter estimates - less than 100 samples for testing
+burnin = 100 if np.size(parameter_samples,0) > 100 else 0
+print('burnin = '+str(burnin))
+print(parameter_samples)
 parameter_samples = parameter_samples[burnin:,0:6]
 print("mean of samples")
 print(np.mean(parameter_samples,axis=0))
@@ -125,7 +124,7 @@ if recalc_synth:
     ## Load parameters into the GCaMP model to use for synthetic data creation
     Cparams = np.mean(parameter_samples,axis=0)
     Gparams = np.loadtxt(Gparam_file)
-    gcamp = pgas.GCaMP(Gparams,final_params)
+    gcamp = pgas.GCaMP(Gparams,Cparams)
 
     ## Generate synthetic data from the PGAS-derived cell paramters 
     # Now making broader spike pulls
