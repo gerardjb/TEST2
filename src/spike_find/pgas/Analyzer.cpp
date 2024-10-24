@@ -20,11 +20,18 @@ using namespace std;
           maxlen(maxlen), Gparam_file(Gparam_file),seed(seed){}
 
 //For keeping a running list of time-independent pgas MC parameter estimates
-void Analyzer::add_parameter_sample(const std::vector<double>& parameter_sample) {
+void Analyzer::add_parameter_sample(std::vector<double> parameter_sample) {
+    cout << "[DEBUG] Adding parameter_sample: ";
+    for (const auto& val : parameter_sample) {
+        cout << val << " ";
+    }
+    cout << endl;
+
     parameter_estimates.push_back(parameter_sample);
 }
 
-const std::vector<std::vector<double>>& Analyzer::get_parameter_estimates() const {
+std::vector<std::vector<double>> Analyzer::get_parameter_estimates() const {
+    cout << "[DEBUG] Returing parameter_estimates to python " << endl;
     return parameter_estimates;
 }
 
@@ -82,11 +89,9 @@ void Analyzer::run() {
     // arma::vec gtSpikes; 
     if (has_gtspikes) {
         constants.KNOWN_SPIKES = true;
-        cout << "We think there are known spikes" << endl;
         //gtSpikes.load(gtSpike_file, arma::raw_ascii);
     }
     if (gtSpikes.n_elem==1){
-        cout << "We do not think there are known spikes" << endl;
         constants.KNOWN_SPIKES = false;
         has_gtspikes = false;
     }
@@ -94,7 +99,6 @@ void Analyzer::run() {
 
     if (has_trained_priors) {
         string dum;
-        cout << "Using trained priors:" << endl;
         // update the constants
         ifstream trainedPrior(trainedPriorFile);
         trainedPrior >> dum >> constants.G_tot_mean >> constants.G_tot_sd;
@@ -121,7 +125,7 @@ void Analyzer::run() {
     // Initialize the trajectory
 
     Trajectory traj_sam1(sampler.TIME, ""), traj_sam2(sampler.TIME, output_folder + "/traj_samples_" + tag + ".dat");
-    cout<<"sampler.TIME = "<<sampler.TIME<<endl;
+
     for (unsigned int t = 0; t < sampler.TIME; ++t) {
         traj_sam1.B(t) = 0;
         traj_sam1.burst(t) = 0;
@@ -129,7 +133,6 @@ void Analyzer::run() {
         traj_sam1.S(t) = 0;
         if (has_gtspikes) traj_sam1.S(t) = gtSpikes(t);
         traj_sam1.Y(t) = 0;
-        //cout<<t<<endl;
     }
 
     // set initial parameters 
@@ -185,7 +188,7 @@ void Analyzer::run() {
 				
 
         if (i % trim == 0) {
-            add_parameter_sample({testpar.G_tot,
+                add_parameter_sample({testpar.G_tot,
                 testpar.gamma,
                 testpar.DCaT,
                 testpar.Rf,

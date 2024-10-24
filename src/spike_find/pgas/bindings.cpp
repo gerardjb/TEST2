@@ -45,6 +45,8 @@ PYBIND11_MODULE(pgas_bound, m) {
              py::arg("maxlen") = 0, py::arg("Gparam_file") = "", py::arg("seed") = 0)
         .def("run", &Analyzer::run)
         .def("add_parameter_sample", &Analyzer::add_parameter_sample)
+        .def("get_parameter_estimates", &Analyzer::get_parameter_estimates)
+        /* This is the original approach with custon conversions for the output parameter array
         .def("get_parameter_estimates", [](const Analyzer &a) {
             const auto& estimates = a.get_parameter_estimates();
             size_t rows = estimates.size();
@@ -62,6 +64,7 @@ PYBIND11_MODULE(pgas_bound, m) {
             }
             return result;
         })
+        */
 		.def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
 	
 	//In case any other functions or classes need to be exposed to python during future iterations

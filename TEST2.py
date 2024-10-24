@@ -5,17 +5,13 @@ import build.pgas_bound as pgas
 from src.spike_find.syn_gen import synth_gen
 import matplotlib.pyplot as plt
 import scipy.io as sio
-
 import os
-print("Current directory: {}".format(os.getcwd()))
-from src.spike_find.cascade2p import checks, utils, cascade
-print("\nChecks for packages:")
-checks.check_packages()
+
 
 #Setting flags for what to calculate on this run
 recalc_Cparams = True
-recalc_synth = True
-retrain_and_infer = True
+recalc_synth = False
+retrain_and_infer = False
 
 #Utility-type methods
 def spike_times_2_binary(spike_times,time_stamps):
@@ -68,7 +64,7 @@ binary_spikes = np.float64(spike_times_2_binary(spike_times,time1))
 #data_file="tests/sample_data/LineScan-11302022-0954-009_0_data_poisson.dat"
 model_choice = "cRNN_no_relu"
 syn_tag = "cRNN_no_relu_janelia"
-tag="default_janelia_test"
+tag="test_param_out"
 Gparam_file="src/spike_find/pgas/20230525_gold.dat"
 
 ##Now we need to test if we have already calculated parameters for this file
@@ -83,7 +79,7 @@ if recalc_Cparams:
         output_folder="sample_data/output",
         column=1,
         tag=tag,
-        niter=300,
+        niter=2,
         append=False,
         verbose=1,
         gtSpikes=binary_spikes,
@@ -101,8 +97,6 @@ if recalc_Cparams:
     parameter_samples = analyzer.get_parameter_estimates()
     ## Save these for use in the future for server disconnect, etc.
     np.save(final_params_fname,final_params)
-    ## Save parameter samples
-    np.savetxt(param_sample_file,parameter_samples,delimiter=',',fmt='%f')
 else:
     ## Opening the saved final sample
     final_params = np.load(final_params_fname+".npy")
@@ -135,6 +129,12 @@ if recalc_synth:
         synth.generate()
 
 if retrain_and_infer:
+    ## Package checks for cascade
+    print("Current directory: {}".format(os.getcwd()))
+    from src.spike_find.cascade2p import checks, utils, cascade
+    print("\nChecks for packages:")
+    checks.check_packages()
+
     ## Train a cascade model using the synthetic dataset
     # First get the data and noise level we're training against
     #data = np.loadtxt(data_file).transpose()

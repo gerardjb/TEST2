@@ -81,13 +81,6 @@ Trajectory::Trajectory(unsigned int s, string fname){
     S.resize(s);
     S.zeros();
     Y.resize(s);
-    cout<<"end of Trajectory constructor"<<endl;
-    cout<<"s in Trajectory"<<s<<endl;
-    cout<<"size of B = "<<B.n_elem<<endl;
-    cout<<"size of burst = "<<burst.n_elem<<endl;
-    cout<<"size of C = "<<C.n_elem<<endl;
-    cout<<"size of S = "<<S.n_elem<<endl;
-    cout<<"size of Y = "<<Y.n_elem<<endl;
 
 }
 

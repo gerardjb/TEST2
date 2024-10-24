@@ -24,7 +24,6 @@ GCaMP::GCaMP(double p1, double p2, double p3, double p4, double p5, double p6, s
 
 // Constructor for passing files
 GCaMP::GCaMP(string Gparam_file, string Cparam_file) {
-	cout<<"Got to the string, string GCaMP constructor method"<<endl;
 	
   // Load Gparams from file or default values
   if (Gparam_file.empty()) {
@@ -45,7 +44,6 @@ GCaMP::GCaMP(string Gparam_file, string Cparam_file) {
 			31.860437304985595
     };
   } else {
-		cout<<"Gparam_file = "<<Gparam_file<<endl;
     Gparams.load(Gparam_file, arma::raw_ascii);
   }
 	
@@ -67,9 +65,6 @@ GCaMP::GCaMP(string Gparam_file, string Cparam_file) {
 		gam_in = Cparams(4);
 		gam_out = Cparams(5);
 	}
-	
-	cout<<"G_tot = "<<G_tot<<"; gam_out = "<<gam_out<<endl;
-	cout<<"G1 = "<<Gparams(0)<<"; G6 = "<<Gparams(5)<<endl;
 	
   // Call initial_setup to complete object initialization
   initial_setup();
@@ -114,8 +109,6 @@ void GCaMP::initial_setup() {
   konPC2 = Gparams(12); koffPC2 = Gparams(13);
 
   sigma2_calcium_spike = pow(FWHM, 2) / (8 * log(2));
-	
-	cout<<"kon_N = "<<konN<<"; koffPN2 = "<<koffPN2<<endl;
 
   setState(c0);
 

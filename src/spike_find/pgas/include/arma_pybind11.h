@@ -74,6 +74,46 @@ public:
     }
 };
 
+template <typename T>
+struct type_caster<std::vector<std::vector<T>>> {
+public:
+    PYBIND11_TYPE_CASTER(std::vector<std::vector<T>>, _("List[List[" PYBIND11_STRINGIFY(T) "]]"));
+
+    bool load(handle src, bool) {
+        // Not needed for output conversion
+        return false;
+    }
+
+    static handle cast(const std::vector<std::vector<T>>& src, return_value_policy /* policy */, handle /* parent */) {
+        // Define the alias within the method's scope
+        namespace py = pybind11;
+
+        if (src.empty()) {
+            // Return an empty array
+            return py::array(py::dtype::of<T>(), {0, 0}).release();
+        }
+
+        size_t rows = src.size();
+        size_t cols = src[0].size();
+
+        // Create a NumPy array with the appropriate shape
+        py::array_t<T> result({rows, cols});
+        auto buffer = result.request();
+        T* ptr = static_cast<T*>(buffer.ptr);
+
+        // Copy data into the NumPy array
+        for (size_t i = 0; i < rows; ++i) {
+            if (src[i].size() != cols) {
+                throw std::runtime_error("All inner vectors must have the same size");
+            }
+            std::copy(src[i].begin(), src[i].end(), ptr + i * cols);
+        }
+
+        return result.release();
+    }
+};
+
+
 }  // namespace detail
 }  // namespace pybind11
 
