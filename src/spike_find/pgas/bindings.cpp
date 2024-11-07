@@ -40,7 +40,7 @@ PYBIND11_MODULE(pgas_bound, m) {
         .def("run", &Analyzer::run)
         .def("add_parameter_sample", &Analyzer::add_parameter_sample)
         .def("get_parameter_estimates", &Analyzer::get_parameter_estimates)
-		.def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
+		    .def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
 	
 				
 	// bindings for GCaMP_model.cpp			
@@ -62,10 +62,9 @@ PYBIND11_MODULE(pgas_bound, m) {
         .def("getDFF", py::overload_cast<>(&GCaMP::getDFF))
         .def("getDFF", py::overload_cast<const arma::vec&>(&GCaMP::getDFF))
         .def("getAmplitude", &GCaMP::getAmplitude)
-		.def("integrateOverTime", &GCaMP::integrateOverTime, py::arg("time"), py::arg("spike_times"))
-		.def("integrateOverTime2", &GCaMP::integrateOverTime2, py::arg("time"), py::arg("spike_times"))
+        .def("integrateOverTime", &GCaMP::integrateOverTime, py::arg("time"), py::arg("spike_times"))
+        .def("integrateOverTime2", &GCaMP::integrateOverTime2, py::arg("time"), py::arg("spike_times"))
         .def("getDFFValues", &GCaMP::getDFFValues)
-        //.def("getStates", &GCaMP::getStates);
         .def("getGValues", &GCaMP::getGValues)
         .def("getStates", [](const GCaMP &g) {
             py::dict states;
@@ -75,8 +74,4 @@ PYBIND11_MODULE(pgas_bound, m) {
             states["Ca_in"] = g.getCaInValues();
             return states;
         });
-		// .def_readwrite("DFF", &GCaMP::DFF); // Removed to prevent crosstalk with integrateOverTime
-
-    
-	
 }

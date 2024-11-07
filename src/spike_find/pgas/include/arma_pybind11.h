@@ -9,37 +9,6 @@ namespace py = pybind11;
 namespace pybind11 {
 namespace detail {
 
-// Type caster for arma::mat
-/* template <> struct type_caster<arma::mat> {
-public:
-    PYBIND11_TYPE_CASTER(arma::mat, _("numpy.ndarray"));
-
-    bool load(handle src, bool) {
-        if (!isinstance<array_t<double>>(src)) {
-            return false;
-        }
-        auto buf = array_t<double>::ensure(src);
-        if (!buf) {
-            return false;
-        }
-        auto dims = buf.ndim();
-        if (dims != 2) {
-            return false;
-        }
-
-        auto rows = buf.shape()[0];
-        auto cols = buf.shape()[1];
-        value = arma::mat(rows, cols);
-        std::memcpy(value.memptr(), buf.data(), rows * cols * sizeof(double));
-        return true;
-    }
-
-    static handle cast(const arma::mat &src, return_value_policy, handle) {
-        array_t<double> array({src.n_rows, src.n_cols}, src.memptr());
-        return array.release();
-    }
-}; */
-
 // Type caster for arma:mat
 template <> struct type_caster<arma::mat> {
 public:
@@ -82,11 +51,6 @@ public:
             static_cast<py::ssize_t>(sizeof(double) * src.n_rows)
         };
 
-        // Debugging: Print shape and strides
-        std::cout << "Casting arma::mat to NumPy array with shape (" 
-                    << shape[0] << ", " << shape[1] << ") and strides (" 
-                    << strides[0] << ", " << strides[1] << ")" << std::endl;
-
         // Create a NumPy array without copying the data
         py::array_t<double> array(shape, strides, src.memptr(), py::none());
 
@@ -103,33 +67,51 @@ template <> struct type_caster<arma::vec> {
 public:
     PYBIND11_TYPE_CASTER(arma::vec, _("numpy.ndarray"));
 
+    // Conversion from Python to C++
     bool load(handle src, bool) {
-			//std::cout << "Type caster called for arma::vec with type: " << pybind11::str(src.get_type()) << std::endl;
+		//std::cout << "Type caster called for arma::vec with type: " << pybind11::str(src.get_type()) << std::endl;
         if (!isinstance<array_t<double>>(src)) {
-					//std::cout << "Not a numpy array of doubles." << std::endl;
+			std::cout << "Not a numpy array of doubles." << std::endl;
             return false;
         }
-        auto buf = array_t<double>::ensure(src);
+        py::array_t<double> buf = py::array_t<double>::ensure(src);
         if (!buf) {
-					//std::cout << "Failed to ensure numpy array." << std::endl;
+			std::cout << "Failed to ensure numpy array." << std::endl;
             return false;
         }
-        auto dims = buf.ndim();
-        if (dims != 1) {
-					//std::cout << "Array is not 1-dimensional." << std::endl;
+        
+        if (buf.ndim() != 1) {
+			std::cout << "Array is not 1-dimensional." << std::endl;
             return false;
         }
 
-        auto size = buf.shape()[0];
+        // Retrieve the size of the NumPy array and initialize arma::vec to match
+        size_t size = buf.shape(0);
         value = arma::vec(size);
+        
         std::memcpy(value.memptr(), buf.data(), size * sizeof(double));
-				  //std::cout << "Successfully casted to arma::vec with size: " << size << std::endl;
+		//std::cout << "Successfully casted to arma::vec with size: " << size << std::endl;
         return true;
     }
 
+    // c++ to python
     static handle cast(const arma::vec &src, return_value_policy, handle) {
-        array_t<double> array(src.n_rows, src.memptr());
-        return array.release();
+        // Define shape and strides with explicit casts to py::ssize_t
+        std::vector<py::ssize_t> shape = {
+            static_cast<py::ssize_t>(src.n_elem)
+        };
+        std::vector<py::ssize_t> strides = {
+            static_cast<py::ssize_t>(sizeof(double))
+        };
+
+        // Create a NumPy array without copying the data
+        py::array_t<double> array(shape, strides, src.memptr(), py::none());
+
+        // Make a copy to ensure ownership in Python
+        py::array_t<double> copy = array.attr("copy")();
+
+        // Return the copied array as a handle
+        return copy.release();
     }
 };
 
@@ -138,37 +120,61 @@ struct type_caster<std::vector<std::vector<T>>> {
 public:
     PYBIND11_TYPE_CASTER(std::vector<std::vector<T>>, _("List[List[" PYBIND11_STRINGIFY(T) "]]"));
 
+    // Conversion from Python to C++ is not implemented
     bool load(handle src, bool) {
-        // Not needed for output conversion
         return false;
     }
 
+    // Conversion from C++ to Python
     static handle cast(const std::vector<std::vector<T>>& src, return_value_policy /* policy */, handle /* parent */) {
-        // Define the alias within the method's scope
-        namespace py = pybind11;
 
         if (src.empty()) {
-            // Return an empty array
-            return py::array(py::dtype::of<T>(), {0, 0}).release();
+            // Return an empty 2D array
+            // Define shape as (0, 0)
+            std::vector<py::ssize_t> shape = {0, 0};
+            // Define strides as {sizeof(T), sizeof(T)*0} which simplifies to {sizeof(T), 0}
+            std::vector<py::ssize_t> strides = {static_cast<py::ssize_t>(sizeof(T)), static_cast<py::ssize_t>(sizeof(T) * 0)};
+            py::array_t<T> empty_array(shape, strides, nullptr, py::none());
+            return empty_array.release();
         }
 
         size_t rows = src.size();
         size_t cols = src[0].size();
 
-        // Create a NumPy array with the appropriate shape
-        py::array_t<T> result({rows, cols});
-        auto buffer = result.request();
+        // Check that all inner vectors have the same size
+        for (size_t i = 1; i < rows; ++i) {
+            if (src[i].size() != cols) {
+                throw std::runtime_error("All inner vectors must have the same size");
+            }
+        }
+
+        // Define shape and strides with explicit casts to py::ssize_t
+        std::vector<py::ssize_t> shape = {
+            static_cast<py::ssize_t>(rows),
+            static_cast<py::ssize_t>(cols)
+        };
+        std::vector<py::ssize_t> strides = {
+            static_cast<py::ssize_t>(sizeof(T)),
+            static_cast<py::ssize_t>(sizeof(T) * rows)
+        };
+
+        // Allocate memory for the NumPy array
+        py::array_t<T> array(shape, strides, nullptr, py::none());
+
+        // Request buffer info to get the data pointer
+        auto buffer = array.request();
         T* ptr = static_cast<T*>(buffer.ptr);
 
         // Copy data into the NumPy array
         for (size_t i = 0; i < rows; ++i) {
-            if (src[i].size() != cols) {
-                throw std::runtime_error("All inner vectors must have the same size");
-            }
             std::copy(src[i].begin(), src[i].end(), ptr + i * cols);
         }
 
-        return result.release();
+        // Make a deep copy to ensure Python owns its data
+        py::array_t<T> copy = array.attr("copy")();
+
+        // Release the copied array as a handle
+        return copy.release();
     }
 };
 
