@@ -125,7 +125,7 @@ void Analyzer::run() {
     // Initialize the trajectory
 
     Trajectory traj_sam1(sampler.TIME, ""), traj_sam2(sampler.TIME, output_folder + "/traj_samples_" + tag + ".dat");
-
+    
     for (unsigned int t = 0; t < sampler.TIME; ++t) {
         traj_sam1.B(t) = 0;
         traj_sam1.burst(t) = 0;

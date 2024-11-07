@@ -53,8 +53,16 @@ public:
 		// Methods for making and retrieving GCaMP simulations via python bindings
 		void integrateOverTime(const arma::vec& time_vect, const arma::vec& spike_times);
 		void integrateOverTime2(const arma::vec& time_vect, const arma::vec& spike_times);
-		// Method to retrieve the stored DFF values
-    const arma::vec& getDFFValues() const;
+		
+    // Method to retrieve the stored DFF and state values
+    //const arma::vec& getDFFValues() const;
+    arma::vec getDFFValues() const { return DFF_values; }
+    arma::mat getGValues() const { return G_interp; }
+    arma::vec getBCaValues() const { return BCa_values; }
+    arma::vec getCaValues() const { return Ca_values; }
+    arma::vec getCaInValues() const { return Ca_in_values; }
+    
+
 
 private:
     // parameters that are allowed to vary
@@ -93,7 +101,12 @@ private:
     double G0, Gsat, Ginit;
 		
 		// For python output
-		arma::vec DFF_values; 
+		arma::vec DFF_values;
+    arma::mat G_values;       // For the full-length simulation time
+    arma::mat G_interp;       // For interpolating onto the experimental time vector
+    arma::vec BCa_values;
+    arma::vec Ca_values;
+    arma::vec Ca_in_values;
 
 };
 

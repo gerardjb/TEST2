@@ -5,11 +5,12 @@
 #include <pybind11/numpy.h>
 #include <armadillo>
 
+namespace py = pybind11;
 namespace pybind11 {
 namespace detail {
 
 // Type caster for arma::mat
-template <> struct type_caster<arma::mat> {
+/* template <> struct type_caster<arma::mat> {
 public:
     PYBIND11_TYPE_CASTER(arma::mat, _("numpy.ndarray"));
 
@@ -36,6 +37,64 @@ public:
     static handle cast(const arma::mat &src, return_value_policy, handle) {
         array_t<double> array({src.n_rows, src.n_cols}, src.memptr());
         return array.release();
+    }
+}; */
+
+// Type caster for arma:mat
+template <> struct type_caster<arma::mat> {
+public:
+    PYBIND11_TYPE_CASTER(arma::mat, _("numpy.ndarray"));
+
+    bool load(handle src, bool) {
+        if (!isinstance<array_t<double>>(src)) {
+            return false;
+        }
+        py::array_t<double> buf = py::array_t<double>::ensure(src);
+        if (!buf) {
+            return false;
+        }
+        if (buf.ndim() != 2) {
+            return false;
+        }
+
+        size_t rows = buf.shape(0);
+        size_t cols = buf.shape(1);
+
+        // Check if the array is Fortran-contiguous
+        if (buf.strides(0) != sizeof(double) || buf.strides(1) != sizeof(double)*rows) {
+            return false;
+        }
+
+        value = arma::mat(rows, cols);
+        std::memcpy(value.memptr(), buf.data(), rows * cols * sizeof(double));
+        return true;
+    }
+
+    // Conversion from C++ to Python
+    static handle cast(const arma::mat &src, return_value_policy, handle) {
+        // Define shape and strides with explicit casts to py::ssize_t
+        std::vector<py::ssize_t> shape = {
+            static_cast<py::ssize_t>(src.n_rows),
+            static_cast<py::ssize_t>(src.n_cols)
+        };
+        std::vector<py::ssize_t> strides = {
+            static_cast<py::ssize_t>(sizeof(double)),
+            static_cast<py::ssize_t>(sizeof(double) * src.n_rows)
+        };
+
+        // Debugging: Print shape and strides
+        std::cout << "Casting arma::mat to NumPy array with shape (" 
+                    << shape[0] << ", " << shape[1] << ") and strides (" 
+                    << strides[0] << ", " << strides[1] << ")" << std::endl;
+
+        // Create a NumPy array without copying the data
+        py::array_t<double> array(shape, strides, src.memptr(), py::none());
+
+        // Make a copy to ensure ownership in Python
+        py::array_t<double> copy = array.attr("copy")();
+
+        // Return the copied array as a handle
+        return copy.release();
     }
 };
 

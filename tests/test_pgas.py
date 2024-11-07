@@ -50,7 +50,7 @@ def test_mcmc(tmp_path):
     output_folder=str(tmp_path)
     column=1
     tag="default"
-    niter=1
+    niter=2
     gtSpikes=binary_spikes
     maxlen=1000
     Gparam_file="src/spike_find/pgas/20230525_gold.dat"
