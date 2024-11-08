@@ -19,13 +19,13 @@
 
 namespace py = pybind11;
 
-//method to extract final array entries as numpy array
+/* //method to extract final array entries as numpy array
 py::array_t<double> get_final_params(Analyzer& analyzer) {
   // Create a NumPy array from the std::vector
   py::array_t<double> result(analyzer.final_params.size());
   std::copy(analyzer.final_params.begin(), analyzer.final_params.end(), result.mutable_data());
   return result;
-}
+} */
 
 
 PYBIND11_MODULE(pgas_bound, m) {
@@ -39,8 +39,8 @@ PYBIND11_MODULE(pgas_bound, m) {
              py::arg("maxlen") = 0, py::arg("Gparam_file") = "", py::arg("seed") = 0)
         .def("run", &Analyzer::run)
         .def("add_parameter_sample", &Analyzer::add_parameter_sample)
-        .def("get_parameter_estimates", &Analyzer::get_parameter_estimates)
-		    .def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
+        .def("get_parameter_samples", &Analyzer::get_parameter_samples);
+		    //.def("get_final_params", &get_final_params, "Get final parameters as a NumPy array");
 	
 				
 	// bindings for GCaMP_model.cpp			

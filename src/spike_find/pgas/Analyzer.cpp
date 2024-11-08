@@ -27,13 +27,9 @@ void Analyzer::add_parameter_sample(std::vector<double> parameter_sample) {
     }
     cout << endl;
 
-    parameter_estimates.push_back(parameter_sample);
+    //parameter_samples.push_back(parameter_sample);
 }
 
-std::vector<std::vector<double>> Analyzer::get_parameter_estimates() const {
-    cout << "[DEBUG] Returing parameter_estimates to python " << endl;
-    return parameter_estimates;
-}
 
 void Analyzer::run() {
     // Other init type stuff that was needed
@@ -188,12 +184,19 @@ void Analyzer::run() {
 				
 
         if (i % trim == 0) {
-                add_parameter_sample({testpar.G_tot,
-                testpar.gamma,
-                testpar.DCaT,
-                testpar.Rf,
-                testpar.gam_in,
-                testpar.gam_out});
+            std::vector<double> parameter_sample = {testpar.G_tot,
+            testpar.gamma,
+            testpar.DCaT,
+            testpar.Rf,
+            testpar.gam_in,
+            testpar.gam_out};
+            arma::rowvec new_row(parameter_sample);
+            if (parameter_samples.n_cols==0){
+                parameter_samples = arma::mat(new_row);
+            }
+            else{
+                parameter_samples = arma::join_cols(parameter_samples, arma::mat(new_row));
+            }
             testpar.write(parsamples, constants.sampling_frequency);
             traj_sam2.write(trajsamples, i / trim);
             logp << testpar.logPrior(constants) + traj_sam2.logp(&testpar, &constants) << endl;

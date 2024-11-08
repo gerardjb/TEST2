@@ -15,7 +15,9 @@ public:
     void run();
     //These are the methods for dealing with the pgas time-independent parameters
     void add_parameter_sample(std::vector<double> parameter_sample);
-    std::vector<std::vector<double>> get_parameter_estimates() const;
+    const arma::mat& get_parameter_samples() const {
+        return parameter_samples;
+    }
 	std::vector<double> final_params;
 
 private:
@@ -38,7 +40,7 @@ private:
     bool verbose;
     unsigned int maxlen;
 
-	std::vector<std::vector<double>> parameter_estimates;	
+	arma::mat parameter_samples;	
 };
 
 #endif // ANALYZER_H
